@@ -1,0 +1,265 @@
+% =============================================================
+%  SECTION IV: PROPOSED SOLUTION
+% =============================================================
+\section{Proposed Solution}\label{sec:proposed_solution}
+
+In this section, we present the proposed ST-ConvLSTM-EWMA framework for Byzantine-resilient federated learning. To address the challenges identified in Problem~(P1), we first transform the high-dimensional model updates into a compact latent space via Singular Value Decomposition (SVD), then construct spatiotemporal feature frames that capture both the spatial structure and temporal dynamics of each client's behavior, and subsequently employ a ConvLSTM-based forecaster for unsupervised anomaly detection. To ensure robust detection across diverse attack types, we integrate a complementary statistical anomaly detector with the ConvLSTM scores and apply EWMA temporal smoothing to stabilize the detection decisions. The overall framework is illustrated in Fig.~\ref{fig:framework}.
+
+\subsection{SVD-Based Latent Space Projection}\label{subsec:svd_projection}
+
+To reduce the dimensionality of the raw model updates while preserving the principal variance directions that characterize benign update patterns, we propose an SVD-based latent space projection. Let $\boldsymbol{\Delta}_i^{(t)} \in \mathbb{R}^d$ denote the flattened update vector of client $i$ at round $t$. During a warmup phase of $T_w$ rounds, we collect the raw update vectors from all participating clients and stack them into a matrix $\mathbf{X} \in \mathbb{R}^{n \times d}$, where $n$ is the total number of collected update samples. The column-wise mean is computed as $\bar{\mathbf{x}} = \frac{1}{n} \sum_{j=1}^{n} \mathbf{x}_j$, and the centered matrix is obtained as $\mathbf{X}_c = \mathbf{X} - \mathbf{1}_n \bar{\mathbf{x}}^\top$. We then perform SVD on the centered matrix, which is expressed as
+\begin{equation}\label{eq:svd}
+    \mathbf{X}_c = \mathbf{U} \boldsymbol{\Sigma} \mathbf{V}^\top,
+\end{equation}
+where $\mathbf{U} \in \mathbb{R}^{n \times n}$, $\boldsymbol{\Sigma} \in \mathbb{R}^{n \times d}$, and $\mathbf{V} \in \mathbb{R}^{d \times d}$. We select the top-$\kappa$ right singular vectors corresponding to the $\kappa$ largest singular values to form the projection basis $\mathbf{V}_\kappa \in \mathbb{R}^{\kappa \times d}$, where $\kappa$ is chosen such that the projected vectors can be reshaped into a two-dimensional spatial grid of size $H \times W$ with $\kappa = H \times W$. Accordingly, the projected latent vector of client $i$ at round $t$ is calculated as
+\begin{equation}\label{eq:svd_proj}
+    \mathbf{z}_i^{(t)} = \mathbf{V}_\kappa \left( \boldsymbol{\Delta}_i^{(t)} - \bar{\mathbf{x}} \right) \in \mathbb{R}^{\kappa}.
+\end{equation}
+
+It is worth noting that the SVD basis $\mathbf{V}_\kappa$ is fitted once from benign updates collected during the warmup phase and remains fixed throughout the subsequent communication rounds. As a result, the projection captures the dominant directions of variation in benign update distributions, and malicious updates that deviate from these patterns will exhibit anomalous characteristics in the latent space.
+
+\subsection{Spatiotemporal Feature Frame Construction}\label{subsec:feature_construction}
+
+To capture both the spatial structure of the projected updates and the distinguishing characteristics of different attack types, we construct a multi-channel feature frame $\mathbf{F}_i^{(t)} \in \mathbb{R}^{C \times H \times W}$ for each client $i$ at round $t$, where $C = 6$ is the number of feature channels. The projected latent vector $\mathbf{z}_i^{(t)} \in \mathbb{R}^{\kappa}$ is reshaped into a spatial grid $\mathbf{Z}_i^{(t)} \in \mathbb{R}^{H \times W}$ with $\kappa = H \times W$. Let $\boldsymbol{\mu}_z^{(t)}$ and $\boldsymbol{\sigma}_z^{(t)}$ denote the element-wise mean and standard deviation of the latent vectors across all participating clients at round $t$, respectively. The six feature channels are defined as follows:
+
+\textbf{Channel 1 -- Normalized Latent Representation.} The first channel captures the standardized projection of the client update in the latent space, which is calculated as
+\begin{equation}\label{eq:ch1}
+    \mathbf{x}_1 = \frac{\mathbf{Z}_i^{(t)} - \boldsymbol{\mu}_z^{(t)}}{\boldsymbol{\sigma}_z^{(t)} + \epsilon} \in \mathbb{R}^{H \times W},
+\end{equation}
+where $\epsilon$ is a small constant for numerical stability.
+
+\textbf{Channel 2 -- Sign Information.} The second channel encodes the directional information of the latent representation, which is given by
+\begin{equation}\label{eq:ch2}
+    \mathbf{x}_2 = \text{sign}\left(\mathbf{Z}_i^{(t)}\right) \in \{-1, 0, +1\}^{H \times W}.
+\end{equation}
+This channel is particularly effective for detecting the LIE attack, which systematically flips the sign of update coordinates.
+
+\textbf{Channel 3 -- Magnitude Deviation.} The third channel captures the deviation of the element-wise magnitudes from the population mean. Let $\boldsymbol{\mu}_m^{(t)}$ and $\boldsymbol{\sigma}_m^{(t)}$ denote the mean and standard deviation of $|\mathbf{Z}_j^{(t)}|$ across all clients $j \in \mathcal{S}^{(t)}$. The magnitude deviation is expressed as
+\begin{equation}\label{eq:ch3}
+    \mathbf{x}_3 = \frac{|\mathbf{Z}_i^{(t)}| - \boldsymbol{\mu}_m^{(t)}}{\boldsymbol{\sigma}_m^{(t)} + \epsilon} \in \mathbb{R}^{H \times W}.
+\end{equation}
+
+\textbf{Channel 4 -- L2-Norm Feature.} The fourth channel reflects the overall magnitude of the client update relative to the population. Let $n_i^{(t)} = \|\boldsymbol{\Delta}_i^{(t)}\|_2$ denote the L2-norm of the raw update vector, and let $\mu_N^{(t)}$ and $\sigma_N^{(t)}$ denote the mean and standard deviation of the norms across all participating clients. The L2-norm feature is calculated as
+\begin{equation}\label{eq:ch4}
+    \mathbf{x}_4 = \frac{n_i^{(t)} - \mu_N^{(t)}}{\sigma_N^{(t)} + \epsilon} \cdot \mathbf{1}_{H \times W} \in \mathbb{R}^{H \times W},
+\end{equation}
+where $\mathbf{1}_{H \times W}$ denotes a matrix of ones. This channel is effective for detecting the Gaussian and Fang attacks, which significantly inflate the update magnitude.
+
+\textbf{Channel 5 -- Cosine Similarity Feature.} The fifth channel measures the directional alignment of the client update with the population mean in the latent space. Let $\bar{\mathbf{z}}^{(t)} = \frac{1}{|\mathcal{S}^{(t)}|} \sum_{j \in \mathcal{S}^{(t)}} \mathbf{z}_j^{(t)}$ denote the mean latent vector. The cosine similarity of client $i$ is computed as $c_i^{(t)} = \frac{\mathbf{z}_i^{(t)} \cdot \bar{\mathbf{z}}^{(t)}}{\|\mathbf{z}_i^{(t)}\|_2 \|\bar{\mathbf{z}}^{(t)}\|_2}$, and the standardized feature is given by
+\begin{equation}\label{eq:ch5}
+    \mathbf{x}_5 = \frac{c_i^{(t)} - \mu_C^{(t)}}{\sigma_C^{(t)} + \epsilon} \cdot \mathbf{1}_{H \times W} \in \mathbb{R}^{H \times W},
+\end{equation}
+where $\mu_C^{(t)}$ and $\sigma_C^{(t)}$ are the mean and standard deviation of cosine similarities across clients.
+
+\textbf{Channel 6 -- Validation Loss Delta.} The sixth channel captures the change in the local validation loss reported by each client. Let $\delta_i^{(t)}$ denote the validation loss delta of client $i$ at round $t$, and let $\mu_L^{(t)}$ and $\sigma_L^{(t)}$ denote the corresponding population statistics. The validation loss feature is expressed as
+\begin{equation}\label{eq:ch6}
+    \mathbf{x}_6 = \frac{\delta_i^{(t)} - \mu_L^{(t)}}{\sigma_L^{(t)} + \epsilon} \cdot \mathbf{1}_{H \times W} \in \mathbb{R}^{H \times W}.
+\end{equation}
+
+Accordingly, the spatiotemporal feature frame for client $i$ at round $t$ is constructed by stacking the six channels, which is formulated as
+\begin{equation}\label{eq:frame}
+    \mathbf{F}_i^{(t)} = \left[\mathbf{x}_1; \mathbf{x}_2; \mathbf{x}_3; \mathbf{x}_4; \mathbf{x}_5; \mathbf{x}_6\right] \in \mathbb{R}^{6 \times H \times W}.
+\end{equation}
+
+To capture temporal dependencies, we maintain a sliding window of the most recent $W_T$ feature frames for each client $i$, forming a spatiotemporal sequence $\mathcal{F}_i^{(t)} = \{\mathbf{F}_i^{(t-W_T+1)}, \ldots, \mathbf{F}_i^{(t)}\} \in \mathbb{R}^{W_T \times C \times H \times W}$, where $W_T$ is the temporal window length.
+
+\subsection{ConvLSTM-Based Anomaly Detection}\label{subsec:convlstm}
+
+To detect anomalous client behavior by leveraging both the spatial structure and temporal dynamics of the feature sequences, we employ a Convolutional Long Short-Term Memory (ConvLSTM) network as an unsupervised forecasting-based anomaly detector. The key insight is that benign clients exhibit predictable spatiotemporal patterns in the latent feature space, while malicious clients deviate from these patterns. By training the ConvLSTM to forecast the next feature frame from the preceding frames in the sequence, malicious clients will produce higher prediction errors, which serve as anomaly scores.
+
+\subsubsection{ConvLSTM Cell Architecture}
+
+Let $\mathbf{X}_t \in \mathbb{R}^{C \times H \times W}$ denote the input feature frame at time step $t$, and let $\mathbf{H}_{t-1} \in \mathbb{R}^{C_h \times H \times W}$ and $\mathbf{C}_{t-1} \in \mathbb{R}^{C_h \times H \times W}$ denote the hidden state and cell state from the previous time step, respectively, where $C_h$ is the number of hidden channels. The ConvLSTM cell computes the four gates through convolutional operations on the concatenation of the input and the previous hidden state. The gate computations are expressed as
+\begin{align}
+    \mathbf{i}_t &= \sigma\left(\mathbf{W}_{xi} * \mathbf{X}_t + \mathbf{W}_{hi} * \mathbf{H}_{t-1} + \mathbf{b}_i\right), \label{eq:input_gate} \\
+    \mathbf{f}_t &= \sigma\left(\mathbf{W}_{xf} * \mathbf{X}_t + \mathbf{W}_{hf} * \mathbf{H}_{t-1} + \mathbf{b}_f\right), \label{eq:forget_gate} \\
+    \mathbf{o}_t &= \sigma\left(\mathbf{W}_{xo} * \mathbf{X}_t + \mathbf{W}_{ho} * \mathbf{H}_{t-1} + \mathbf{b}_o\right), \label{eq:output_gate} \\
+    \widetilde{\mathbf{C}}_t &= \tanh\left(\mathbf{W}_{xc} * \mathbf{X}_t + \mathbf{W}_{hc} * \mathbf{H}_{t-1} + \mathbf{b}_c\right), \label{eq:candidate}
+\end{align}
+where $\sigma(\cdot)$ denotes the sigmoid activation function, $*$ represents the two-dimensional convolution operation, and $\{\mathbf{W}_{x\cdot}, \mathbf{W}_{h\cdot}, \mathbf{b}_{\cdot}\}$ are the learnable convolution kernels and biases for the input gate $\mathbf{i}_t$, forget gate $\mathbf{f}_t$, output gate $\mathbf{o}_t$, and candidate cell state $\widetilde{\mathbf{C}}_t$, respectively. The cell state and hidden state are updated as
+\begin{align}
+    \mathbf{C}_t &= \mathbf{f}_t \odot \mathbf{C}_{t-1} + \mathbf{i}_t \odot \widetilde{\mathbf{C}}_t, \label{eq:cell_update} \\
+    \mathbf{H}_t &= \mathbf{o}_t \odot \tanh\left(\mathbf{C}_t\right), \label{eq:hidden_update}
+\end{align}
+where $\odot$ denotes the Hadamard (element-wise) product.
+
+\subsubsection{Forecasting-Based Anomaly Scoring}
+
+The ConvLSTM forecaster processes the first $W_T - 1$ frames of a client's temporal sequence $\mathcal{F}_i^{(t)}$ and predicts the final frame $\hat{\mathbf{F}}_i^{(t)}$. A linear convolutional layer maps the hidden state to the output space, which is given by
+\begin{equation}\label{eq:pred}
+    \hat{\mathbf{F}}_i^{(t)} = \mathbf{W}_{\text{out}} * \mathbf{H}_{W_T - 1} + \mathbf{b}_{\text{out}} \in \mathbb{R}^{C \times H \times W}.
+\end{equation}
+
+The ConvLSTM is trained in an unsupervised manner on temporal sequences collected from benign clients. The training loss is the mean squared error (MSE) between the predicted and the true final frame, which is calculated as
+\begin{equation}\label{eq:train_loss}
+    \mathcal{L}_{\text{MSE}} = \frac{1}{C \cdot H \cdot W} \left\| \hat{\mathbf{F}}_i^{(t)} - \mathbf{F}_i^{(t)} \right\|_F^2.
+\end{equation}
+
+The raw anomaly score for client $i$ at round $t$ is defined as the reconstruction error of the latest temporal window, which is expressed as
+\begin{equation}\label{eq:anom_score}
+    s_i^{(t)} = \frac{1}{C \cdot H \cdot W} \sum_{c=1}^{C} \sum_{h=1}^{H} \sum_{w=1}^{W} \left(\hat{F}_{i,c,h,w}^{(t)} - F_{i,c,h,w}^{(t)}\right)^2.
+\end{equation}
+
+The rationale is as follows: the ConvLSTM learns to model the normal temporal evolution of benign clients' update patterns. When a malicious client exhibits anomalous behavior -- such as injecting high-magnitude noise, flipping gradient directions, or sending identical poisoned vectors across rounds -- the predicted frame deviates significantly from the actual observed frame, resulting in a higher anomaly score.
+
+\subsection{EWMA Temporal Smoothing}\label{subsec:ewma}
+
+To address the issue of noisy per-round anomaly scores and to capture the persistent nature of malicious behavior across multiple communication rounds, we apply Exponentially Weighted Moving Average (EWMA) temporal smoothing to the raw ConvLSTM anomaly scores. For each client $i$, the EWMA-smoothed anomaly score is updated at each round $t$ as
+\begin{equation}\label{eq:ewma}
+    \bar{s}_i^{(t)} =
+    \begin{cases}
+        s_i^{(t)}, & \text{if } t \text{ is the first observation}, \\
+        \lambda \cdot \bar{s}_i^{(t-1)} + (1 - \lambda) \cdot s_i^{(t)}, & \text{if client } i \text{ is scored at round } t, \\
+        \lambda \cdot \bar{s}_i^{(t-1)}, & \text{otherwise},
+    \end{cases}
+\end{equation}
+where $\lambda \in (0, 1)$ is the EWMA decay parameter that controls the trade-off between historical and current observations. A larger $\lambda$ produces smoother estimates that are more robust to transient fluctuations but slower to react to sudden changes in client behavior.
+
+To track the uncertainty of the EWMA estimates, we maintain the second moment $m_{2,i}^{(t)} = \lambda \cdot m_{2,i}^{(t-1)} + (1 - \lambda) \cdot (s_i^{(t)})^2$, and the variance is approximated as $\text{Var}_i^{(t)} \approx m_{2,i}^{(t)} - (\bar{s}_i^{(t)})^2$.
+
+\subsubsection{Two-Sided Relative ConvLSTM Scoring}
+
+It is worth noting that sophisticated attacks such as LIE produce temporally consistent poisoned updates, which may result in \textit{lower} anomaly scores than benign clients because the ConvLSTM learns to predict the fixed malicious pattern accurately. To address this inverted-polarity issue, we propose a two-sided relative scoring mechanism based on the Median Absolute Deviation (MAD). Let $\tilde{s}^{(t)} = \text{median}(\{\bar{s}_j^{(t)}\}_{j \in \mathcal{S}^{(t)}})$ denote the median of the EWMA scores, and let $\text{MAD}^{(t)} = \text{median}(\{|\bar{s}_j^{(t)} - \tilde{s}^{(t)}|\}_{j \in \mathcal{S}^{(t)}})$ denote the MAD. The two-sided relative score for client $i$ is calculated as
+\begin{align}
+    z_{\text{upper},i}^{(t)} &= 0.6745 \cdot \frac{\max(0, \bar{s}_i^{(t)} - \tilde{s}^{(t)})}{\text{MAD}^{(t)} + \epsilon}, \label{eq:z_upper} \\
+    z_{\text{lower},i}^{(t)} &= 0.6745 \cdot \frac{\max(0, \tilde{s}^{(t)} - \bar{s}_i^{(t)})}{\text{MAD}^{(t)} + \epsilon}, \label{eq:z_lower} \\
+    r_i^{(t)} &= \tanh\left(\frac{\max(z_{\text{upper},i}^{(t)}, z_{\text{lower},i}^{(t)})}{2}\right), \label{eq:convlstm_rel}
+\end{align}
+where the factor $0.6745$ normalizes the MAD to be consistent with the standard deviation under the Gaussian assumption. The upper z-score $z_{\text{upper},i}^{(t)}$ captures clients whose EWMA scores are abnormally \textit{high} (detecting Gaussian, Min-Max, and Fang attacks), while the lower z-score $z_{\text{lower},i}^{(t)}$ captures clients whose EWMA scores are abnormally \textit{low} (detecting LIE attacks). The $\tanh$ function compresses the combined score into the interval $[0, 1)$.
+
+\subsection{Per-Round Statistical Anomaly Detector}\label{subsec:stat_detector}
+
+To provide immediate per-round detection capability without requiring temporal history, we design a complementary statistical anomaly detector that operates directly on the raw client updates at each communication round. This detector is particularly important during the early rounds when insufficient temporal history is available for the ConvLSTM forecaster to produce reliable predictions. The underlying principle is that updates from honest clients are expected to concentrate around a robust central reference along several statistical axes, including magnitude, direction, distance, sign agreement, and mutual diversity. Hence, any client whose update markedly departs from this consensus along one or more of the axes is regarded as suspicious. To establish such a robust reference, let $\hat{\boldsymbol{\Delta}}^{(t)} = \text{median}(\{\boldsymbol{\Delta}_j^{(t)}\}_{j \in \mathcal{S}^{(t)}})$ denote the coordinate-wise median of the client updates, which is resilient to a bounded fraction of corrupted samples. Accordingly, the proposed detector evaluates five complementary signals for each client $i$, where each signal characterizes a distinct facet of deviation from the consensus behavior.
+
+\textbf{Signal 1 -- Norm Score} (weight $w_1 = 0.30$): The L2-norm of an update is a compact scalar summary of its overall magnitude, which can be computed in $\mathcal{O}(d)$ and is invariant to coordinate permutations, making it an attractive lightweight feature for per-round screening at scale. To exploit this property, we adopt the logarithmic deviation of an individual L2-norm from a robust reference rather than from the empirical mean, where the reference is drawn from the lower portion of the population in order to suppress the influence of inflated values on the reference itself. Specifically, let $\tilde{n}^{(t)}$ denote the trimmed median of L2-norms, which is computed from the bottom 80\% of clients by magnitude. Accordingly, the norm score is given by
+\begin{equation}\label{eq:norm_score}
+    \phi_{1,i}^{(t)} = \min\left(1, \frac{\log_2\left(\|\boldsymbol{\Delta}_i^{(t)}\|_2 / \tilde{n}^{(t)}\right)}{5}\right),
+\end{equation}
+where the $\log_2$ scaling ensures that the score is responsive across multiple orders of magnitude, while the saturation at $1$ prevents extreme values from dominating the fused statistical score.
+
+\textbf{Signal 2 -- Cosine Score} (weight $w_2 = 0.20$): The cosine similarity describes an update through its direction independently of its magnitude, and is therefore informationally complementary to the norm score, since the two together represent an update in a polar form rather than through a single radial summary. Notably, the cosine is naturally bounded within $[-1, 1]$ and requires only a single inner product per client, which makes it well-suited for per-round computation across many participants. Hence, we compute the cosine score from the angular distance to the reference median, which is expressed as
+\begin{equation}\label{eq:cos_score}
+    \phi_{2,i}^{(t)} = \frac{1 - \cos(\boldsymbol{\Delta}_i^{(t)}, \hat{\boldsymbol{\Delta}}^{(t)})}{2},
+\end{equation}
+where the score is rescaled to the interval $[0, 1]$ to remain commensurate with the other signals in the weighted combination.
+
+\textbf{Signal 3 -- Distance Score} (weight $w_3 = 0.25$): The Euclidean distance to the reference median jointly encodes magnitude and directional deviations into a single scalar, which is advantageous when neither component alone is conclusive. To prevent the dispersion estimate itself from being inflated, we standardize the raw distances using the Median Absolute Deviation (MAD) rather than the standard deviation, since the MAD remains stable even under a substantial fraction of corrupted samples and therefore provides a doubly robust scale estimate together with the median reference. Let $d_i^{(t)} = \|\boldsymbol{\Delta}_i^{(t)} - \hat{\boldsymbol{\Delta}}^{(t)}\|_2$ denote the L2-distance to the reference, and let $\tilde{d}^{(t)}$ and $\text{MAD}_d^{(t)}$ denote the median and the MAD of these distances, respectively. Accordingly, the distance score is calculated as
+\begin{equation}\label{eq:dist_score}
+    \phi_{3,i}^{(t)} = \tanh\left(\frac{0.6745 \cdot (d_i^{(t)} - \tilde{d}^{(t)})}{2 \cdot (\text{MAD}_d^{(t)} + \epsilon)}\right),
+\end{equation}
+where the factor $0.6745$ aligns the MAD-based scale with the Gaussian standard deviation, and the $\tanh$ function bounds the score within $[0, 1)$ for stable fusion with the other signals.
+
+\textbf{Signal 4 -- Sign Disagreement Score} (weight $w_4 = 0.15$): While the preceding signals operate on aggregate update statistics, valuable evidence may also reside at the level of individual coordinates that aggregate norms and cosines cannot resolve. To exploit this fine-grained source of information, we adopt a coordinate-wise sign disagreement feature that compares the polarity of every dimension between an individual update and the reference. It is worth noting that not all coordinates carry equal weight in a high-dimensional update, since coordinates with near-zero reference values are inherently noisy and uninformative. Hence, each coordinate is weighted by the absolute magnitude of the reference so that disagreements on informative dimensions contribute more than disagreements on near-zero ones. The sign disagreement score is given by
+\begin{equation}\label{eq:sign_score}
+    \phi_{4,i}^{(t)} = \frac{\sum_{k=1}^{d} |\hat{\Delta}_k^{(t)}| \cdot \mathbb{1}\{\text{sign}(\Delta_{i,k}^{(t)}) \neq \text{sign}(\hat{\Delta}_k^{(t)})\}}{\sum_{k=1}^{d} |\hat{\Delta}_k^{(t)}|},
+\end{equation}
+which is naturally bounded within $[0, 1]$ by construction.
+
+\textbf{Signal 5 -- Clone Detection Score} (weight $w_5 = 0.10$): The first four signals all evaluate each client against a single consensus reference and therefore share a common axis of evidence. However, certain anomalies are not visible to any single-client comparison and reveal themselves only through inter-client structure. In particular, updates produced by independent honest clients are expected to exhibit a moderate level of mutual diversity, owing to the heterogeneity of local data and the stochasticity of local training. Therefore, an unusually high pairwise similarity between a client's update and that of any other participant constitutes an additional, statistically distinct evidence channel. To exploit this complementary axis at minimal cost, we adopt a pairwise feature whose only additional computation is a maximum operation over the already-available cosine similarities between clients. The clone score is expressed as
+\begin{equation}\label{eq:clone_score}
+    \phi_{5,i}^{(t)} = \text{clip}\left(\frac{\max_{j \neq i} \cos(\boldsymbol{\Delta}_i^{(t)}, \boldsymbol{\Delta}_j^{(t)}) - \eta}{1 - \eta}, 0, 1\right),
+\end{equation}
+where $\eta$ is a similarity threshold that controls the strictness of the score, and the clip operation ensures that only similarities exceeding the threshold contribute to the fused statistical score.
+
+The fused statistical anomaly score is then computed as the weighted combination of the five signals, which is formulated as
+\begin{equation}\label{eq:stat_fused}
+    \phi_i^{(t)} = \sum_{l=1}^{5} w_l \cdot \phi_{l,i}^{(t)}.
+\end{equation}
+
+The fused score is further smoothed using EWMA with a separate decay parameter $\lambda_{\text{stat}}$, which is expressed as $\bar{\phi}_i^{(t)} = \lambda_{\text{stat}} \cdot \bar{\phi}_i^{(t-1)} + (1 - \lambda_{\text{stat}}) \cdot \phi_i^{(t)}$. As a result, transient fluctuations are suppressed while persistent deviations are retained for the downstream filtering stage.
+
+\subsection{Score Fusion and Adaptive Quantile Filtering}\label{subsec:filtering}
+
+To combine the temporal ConvLSTM-based scores and the per-round statistical scores, we adopt a max-fusion strategy that allows either detector to independently flag a client as anomalous. The final anomaly score for client $i$ at round $t$ is given by
+\begin{equation}\label{eq:fusion}
+    a_i^{(t)} = \max\left(\bar{\phi}_i^{(t)}, r_i^{(t)}\right),
+\end{equation}
+where $\bar{\phi}_i^{(t)}$ is the EWMA-smoothed statistical score and $r_i^{(t)}$ is the two-sided relative ConvLSTM score defined in \eqref{eq:convlstm_rel}. This max-fusion approach ensures complementary coverage: the statistical detector provides immediate detection from round one (particularly effective against high-magnitude Gaussian attacks), while the ConvLSTM relative score captures sophisticated temporal anomalies that emerge after sufficient history is accumulated (effective against LIE and Min-Max attacks).
+
+\subsubsection{Adaptive Quantile-Based Threshold}
+
+To determine the filtering threshold $\tau^{(t)}$ that separates benign from malicious clients at each round, we propose an adaptive quantile-based filtering mechanism driven by four complementary signals. Let $\mathbf{a}^{(t)} = \{a_i^{(t)}\}_{i \in \mathcal{S}^{(t)}}$ denote the set of fused anomaly scores at round $t$. The adaptive strictness parameter $\rho^{(t)} \in [0, 1]$ is computed from the following signals:
+
+\textbf{(i) Spread Signal} (weight $\alpha_1 = 0.35$): The spread of anomaly scores indicates the separability between benign and malicious clients. Let $\text{IQR}^{(t)} = Q_{75}(\mathbf{a}^{(t)}) - Q_{25}(\mathbf{a}^{(t)})$ denote the interquartile range and $Q_{50}(\mathbf{a}^{(t)})$ denote the median. The spread signal is calculated as
+\begin{equation}\label{eq:spread}
+    \rho_1^{(t)} = \frac{\text{IQR}^{(t)} / |Q_{50}(\mathbf{a}^{(t)}) + \epsilon|}{(\text{IQR}^{(t)} / |Q_{50}(\mathbf{a}^{(t)}) + \epsilon|) + 1}.
+\end{equation}
+
+\textbf{(ii) Severity Signal} (weight $\alpha_2 = 0.30$): The ratio of the mean to the standard deviation of anomaly scores quantifies the concentration of high-anomaly clients. The severity signal is expressed as $\rho_2^{(t)} = \frac{\mu_a^{(t)} / \sigma_a^{(t)}}{(\mu_a^{(t)} / \sigma_a^{(t)}) + 1}$.
+
+\textbf{(iii) Server Health Signal} (weight $\alpha_3 = 0.20$): The consecutive number of rounds with improving global model performance, denoted by $G^{(t)}$, is used to assess the server's convergence health. The server signal is given by
+\begin{equation}\label{eq:server}
+    \rho_3^{(t)} =
+    \begin{cases}
+        0, & \text{if } G^{(t)} \geq K_{\text{good}}, \\
+        1, & \text{if } G^{(t)} = 0, \\
+        0.5, & \text{otherwise}.
+    \end{cases}
+\end{equation}
+
+\textbf{(iv) Drop-Rate Feedback Signal} (weight $\alpha_4 = 0.15$): To prevent over-filtering, the drop-rate feedback signal penalizes excessive client exclusion. Let $p_{\text{drop}}^{(t-1)}$ denote the fraction of clients dropped in the previous round and $p_{\text{target}}$ denote the target drop rate. The drop-rate signal is computed as $\rho_4^{(t)} = 1 - \text{clip}\left(\frac{p_{\text{drop}}^{(t-1)} - p_{\text{target}} + 0.20}{0.40}, 0, 1\right)$.
+
+The overall strictness is calculated as the weighted combination $\rho^{(t)} = \sum_{l=1}^{4} \alpha_l \cdot \rho_l^{(t)}$, and the adaptive quantile threshold is mapped as
+\begin{equation}\label{eq:quantile_map}
+    q^{(t)} = q_{\max} - \rho^{(t)} \cdot (q_{\max} - q_{\min}),
+\end{equation}
+where $q_{\min}$ and $q_{\max}$ are the minimum and maximum quantile bounds. A higher strictness $\rho^{(t)}$ produces a lower quantile threshold (stricter filtering), while a lower strictness produces a higher threshold (more lenient). To ensure smooth transitions between rounds, the quantile is smoothed as $\hat{q}^{(t)} = 0.7 \cdot \hat{q}^{(t-1)} + 0.3 \cdot q^{(t)}$.
+
+The filtering threshold is then obtained as $\tau^{(t)} = Q_{\hat{q}^{(t)}}(\mathbf{a}^{(t)})$, and client $i$ is accepted for aggregation if $a_i^{(t)} \leq \tau^{(t)}$, i.e., $\mathcal{A}^{(t)} = \{i \in \mathcal{S}^{(t)} : a_i^{(t)} \leq \tau^{(t)}\}$. To satisfy constraint \eqref{eq:P1c}, a minimum of $N_{\min}$ clients are always retained even if their scores exceed the threshold.
+
+\subsection{Adaptive Client Scoring Policy}\label{subsec:scoring_policy}
+
+To address constraint \eqref{eq:P1e} on computational cost, we propose an adaptive client scoring policy that selectively evaluates clients based on their risk profiles rather than scoring all clients at every round. The policy operates in two phases:
+
+\textbf{Phase 1 -- Cold-Start} (rounds $1$ to $T_c$): All participating clients are scored to establish baseline EWMA values and populate the temporal feature histories.
+
+\textbf{Phase 2 -- Adaptive Selection} (rounds $T_c + 1$ onwards): Clients are selected for scoring based on three complementary triggers: (i) periodic refresh -- clients that have not been scored for $R_{\max}$ consecutive rounds are re-evaluated; (ii) high-EWMA trigger -- clients whose EWMA scores exceed the $\tau_s$-quantile of all EWMA values are prioritized; (iii) adaptive cap -- the total number of clients scored per round is bounded by a cap $B^{(t)}$ that scales with the risk level, defined as
+\begin{equation}\label{eq:cap}
+    B^{(t)} = B_{\min} + (B_{\max} - B_{\min}) \cdot \frac{\text{IQR}_{\text{EWMA}}^{(t)}}{|Q_{50,\text{EWMA}}^{(t)}| + \epsilon},
+\end{equation}
+where $B_{\min}$ and $B_{\max}$ are the minimum and maximum scoring budgets. When the spread of EWMA scores is large, indicating diverse anomaly patterns, more clients are scored; when the spread is small, fewer clients are scored to conserve computational resources.
+
+\subsection{Semi-Online Selective Detector Retraining}\label{subsec:retraining}
+
+To maintain the detection performance of the ConvLSTM as the data distribution evolves over the communication rounds, we propose a semi-online selective retraining mechanism. The retraining is triggered when the following conditions are jointly satisfied: (i) the global model has shown improvement for at least $K_{\text{good}}$ consecutive rounds, indicating a ``good'' aggregation state; (ii) at least $R_{\text{update}}$ rounds have elapsed since the last retraining; and (iii) the clean window buffer $\mathcal{W}_{\text{clean}}$ contains at least $W_{\min}$ temporal windows collected from low-anomaly clients during good rounds.
+
+When triggered, the ConvLSTM detector is retrained for $E_{\text{update}}$ gradient steps using mini-batches of size $B_{\text{train}}$ sampled from $\mathcal{W}_{\text{clean}}$, with gradient clipping $\|\mathbf{g}\| \leq g_{\max}$ to ensure training stability. The clean window buffer is maintained as a first-in-first-out (FIFO) queue with a maximum capacity of $W_{\max}$ windows.
+
+\subsection{Algorithm Summary}\label{subsec:algorithm}
+
+The proposed ST-ConvLSTM-EWMA framework is detailed in Algorithm~\ref{alg:framework}. The overall data flow at each communication round proceeds as follows: (i) the server collects client updates; (ii) the SVD projection maps the updates to the latent space; (iii) spatiotemporal feature frames are constructed and appended to client histories; (iv) the ConvLSTM scores selected clients via the adaptive scoring policy; (v) the EWMA smoothing and two-sided relative scoring are applied; (vi) the statistical detector computes complementary per-round scores; (vii) the max-fusion and adaptive quantile filtering identify malicious clients; (viii) FedAvg aggregation is performed on the accepted clients; and (ix) the ConvLSTM detector is retrained if the semi-online conditions are satisfied.
+
+\begin{algorithm}[t]
+\caption{ST-ConvLSTM-EWMA Byzantine-Resilient Federated Aggregation}\label{alg:framework}
+\begin{algorithmic}[1]
+\REQUIRE Global model $\boldsymbol{\theta}^{(0)}$, $N$ clients, window length $W_T$, EWMA decay $\lambda$, scoring budget $[B_{\min}, B_{\max}]$, quantile bounds $[q_{\min}, q_{\max}]$
+\ENSURE Trained global model $\boldsymbol{\theta}^{(T)}$
+\STATE Initialize ConvLSTM forecaster $\mathcal{G}_\psi$, SVD basis $\mathbf{V}_\kappa$
+\FOR{round $t = 1, 2, \ldots, T$}
+    \STATE Broadcast $\boldsymbol{\theta}^{(t)}$ to selected clients $\mathcal{S}^{(t)}$
+    \STATE Collect updates $\{\boldsymbol{\Delta}_i^{(t)}\}_{i \in \mathcal{S}^{(t)}}$
+    \IF{$t \leq T_w$}
+        \STATE Accumulate updates for SVD basis fitting
+    \ENDIF
+    \STATE Project: $\mathbf{z}_i^{(t)} \leftarrow \mathbf{V}_\kappa(\boldsymbol{\Delta}_i^{(t)} - \bar{\mathbf{x}})$, $\forall i$
+    \STATE Construct frames: $\mathbf{F}_i^{(t)} \leftarrow [\mathbf{x}_1; \ldots; \mathbf{x}_6]$, $\forall i$
+    \STATE Update feature histories: $\mathcal{H}_i \leftarrow \mathcal{H}_i \cup \{\mathbf{F}_i^{(t)}\}$
+    \STATE Select scoring set $\mathcal{Q}^{(t)}$ via adaptive policy
+    \FOR{each $i \in \mathcal{Q}^{(t)}$ with $|\mathcal{H}_i| \geq W_T$}
+        \STATE $s_i^{(t)} \leftarrow \text{MSE}(\mathcal{G}_\psi(\mathcal{F}_i^{(t)}), \mathbf{F}_i^{(t)})$
+        \STATE Update EWMA: $\bar{s}_i^{(t)} \leftarrow \lambda \bar{s}_i^{(t-1)} + (1-\lambda) s_i^{(t)}$
+    \ENDFOR
+    \STATE Compute two-sided relative scores $\{r_i^{(t)}\}$ via \eqref{eq:z_upper}--\eqref{eq:convlstm_rel}
+    \STATE Compute statistical scores $\{\phi_i^{(t)}\}$ via \eqref{eq:stat_fused}
+    \STATE Fuse: $a_i^{(t)} \leftarrow \max(\bar{\phi}_i^{(t)}, r_i^{(t)})$, $\forall i$
+    \STATE Compute adaptive threshold $\tau^{(t)}$ via \eqref{eq:quantile_map}
+    \STATE Filter: $\mathcal{A}^{(t)} \leftarrow \{i : a_i^{(t)} \leq \tau^{(t)}\}$ with $|\mathcal{A}^{(t)}| \geq N_{\min}$
+    \STATE Aggregate: $\boldsymbol{\theta}^{(t+1)} \leftarrow \boldsymbol{\theta}^{(t)} + \frac{1}{|\mathcal{A}^{(t)}|} \sum_{i \in \mathcal{A}^{(t)}} \boldsymbol{\Delta}_i^{(t)}$
+    \STATE Optionally retrain $\mathcal{G}_\psi$ on $\mathcal{W}_{\text{clean}}$ (semi-online)
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Complexity Analysis}\label{subsec:complexity}
+
+As the SVD basis fitting and the initial ConvLSTM training are performed only once during the warmup phase, we evaluate the complexity of the proposed framework based on the per-round inference stage. The computational complexity of the per-round inference consists of the following main components: (i) the SVD projection of $|\mathcal{S}^{(t)}|$ client updates requires $\mathcal{O}(|\mathcal{S}^{(t)}| \cdot \kappa \cdot d)$ operations; (ii) the feature frame construction for all clients requires $\mathcal{O}(|\mathcal{S}^{(t)}| \cdot C \cdot H \cdot W)$ operations; (iii) the ConvLSTM inference for the selected scoring set $\mathcal{Q}^{(t)}$ requires $\mathcal{O}(|\mathcal{Q}^{(t)}| \cdot W_T \cdot C_h \cdot (C + C_h) \cdot k^2 \cdot H \cdot W)$ operations, where $k$ is the convolution kernel size; (iv) the statistical detector requires $\mathcal{O}(|\mathcal{S}^{(t)}| \cdot d)$ operations; and (v) the adaptive filtering requires $\mathcal{O}(|\mathcal{S}^{(t)}| \log |\mathcal{S}^{(t)}|)$ operations for quantile computation. As a result, the total computational complexity of the proposed per-round inference is $\mathcal{O}(|\mathcal{S}^{(t)}| \cdot \kappa \cdot d + |\mathcal{Q}^{(t)}| \cdot W_T \cdot C_h^2 \cdot k^2 \cdot H \cdot W)$. Notably, the adaptive scoring policy ensures $|\mathcal{Q}^{(t)}| \leq B^{(t)} \ll |\mathcal{S}^{(t)}|$ in most rounds, which significantly reduces the ConvLSTM inference cost and makes the framework feasible for large-scale federated learning deployments.

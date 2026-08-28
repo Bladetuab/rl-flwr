@@ -1,0 +1,952 @@
+\documentclass[journal]{IEEEtran}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{cite}
+\usepackage{array}
+\usepackage[caption=false]{subfig}
+\hbadness=10000
+\vbadness=10000
+
+\begin{document}
+
+\title{USTAD-FL: Unsupervised Statistical Anomaly Detection\\for Byzantine-Robust Federated Learning}
+
+\author{First~Author,~\IEEEmembership{Student Member,~IEEE,}
+Second~Author,~\IEEEmembership{Senior Member,~IEEE}
+\thanks{Manuscript received XXXX XX, 2025; revised XXXX XX, 2025. This work was supported in part by XXXX. (Corresponding author: Second Author.)}
+\thanks{The authors are with the Department of XXXX, University of XXXX, City, Country (e-mail: first@xxx.edu; second@xxx.edu).}}
+
+\markboth{IEEE TRANSACTIONS ON XXXX, VOL. XX, NO. X, MONTH 2025}
+{Author \MakeLowercase{\textit{et al.}}: USTAD-FL: Statistical Anomaly Detection for Byzantine-Robust Federated Learning}
+
+\maketitle
+
+% TODO(salvage 2026-07-23): headline numbers below are from the *evaluated* (fused) system and the
+% offline decider ablation. Once the stat-only-from-scratch + SignGuard/DnC batch runs, update the
+% "matches or exceeds" claim to the stat-only arm's numbers and add the mandated baselines. See
+% SALVAGE_SCOPE.md. Do NOT restate fused numbers as stat-only's beyond what the decider licenses.
+\begin{abstract}
+Federated learning (FL) enables collaborative model training across distributed clients without sharing raw data, but its reliance on client-submitted updates exposes it to Byzantine model-poisoning attacks. Existing defenses depend on assumptions about the number of malicious clients, a clean server-side dataset, or single-statistic screens, and consequently fail under adaptive attacks or non-independent and identically distributed (non-IID) data. We propose USTAD-FL, an unsupervised anomaly-detection framework that removes malicious clients before aggregation without assuming the number of malicious clients, a labeled reference model, or the attack type. At its core is a low-cost, aggregator-agnostic detector that scores every client on five complementary robust signals---norm, direction, robust displacement, sign structure, and inter-client redundancy---each referenced to the coordinate-wise median of the current round, so that norm-inflating (Gaussian), sub-mean (LIE), and clone-type (Min-Max) attacks are all exposed by a purely cross-sectional test needing no update history and no reference data; a two-sided robust normalization resolves the score-polarity inversion that adaptive attacks induce. On MNIST and Fashion-MNIST at a $40\%$ adversarial fraction, USTAD-FL matches or exceeds three state-of-the-art defenses on these three attacks, detecting at least $0.999$ of attackers per round from the second attacked round onward. The comparison is one of consistency rather than peak accuracy: USTAD-FL holds $0.736$--$0.888$ across all six dataset--attack settings, whereas two baselines collapse to near-random accuracy under at least one attack and the remaining two, though never catastrophic, trail its worst case by roughly $15$ accuracy points---the property that matters when the aggregator must be fixed before the attack is known. We further ask whether spatio-temporal modelling adds detection value, and report a rigorous negative result: across $66$ configurations a Convolutional Long Short-Term Memory (ConvLSTM) next-frame forecaster, used as a second temporal arm, is dominated by the statistical detector, because inflicting sustained harm requires a persistent bias that is by construction temporally predictable. A cheap, assumption-free statistical screen thus suffices for this threat model.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Federated learning, Byzantine robustness, model poisoning, anomaly detection, robust statistics, robust aggregation.
+\end{IEEEkeywords}
+
+%=============================================================================
+\section{Introduction}
+\label{sec:introduction}
+%=============================================================================
+
+
+\IEEEPARstart{F}{ederated} learning (FL) has emerged as a cornerstone of privacy-preserving machine learning across organizations and devices that cannot pool their raw data~\cite{sandeepa2025federated}. By keeping raw data on client devices and exchanging only model updates with a central server, FL supports large-scale collaborative training without centralizing sensitive data. However, the very properties that make FL attractive---decentralization and the server's lack of visibility into client data---also expose it to \emph{Byzantine} threats. Because the server observes only the submitted updates, a subset of compromised clients can upload arbitrarily crafted updates that degrade the accuracy of the global model or divert its convergence~\cite{baruch2019little, fang2020local, shejwalkar2021manipulating}. Such model-poisoning attacks are particularly damaging in FL: a small fraction of adversaries can collapse the global model, and an adversary can refine its strategy across rounds by exploiting the publicly broadcast global model.
+
+Existing defenses against Byzantine clients fall into two broad families, both of which face fundamental limitations under realistic conditions. The first family comprises Byzantine-robust aggregators such as Krum~\cite{blanchard2017machine}, the coordinate-wise median, and the trimmed mean~\cite{yin2018byzantine}, which discard or downweight statistical outliers. These rules rely on strong assumptions about the number of malicious clients, which is rarely known in practice, and they tend to misclassify benign-but-divergent updates under non-independent and identically distributed (non-IID) data. The second family assigns trust from richer signals: FLTrust~\cite{cao2020fltrust} requires a clean root dataset at the server to bootstrap a reference model, whereas FLDetector~\cite{zhang2022fldetector} tracks the consistency of update histories but incurs substantial computational cost and is unreliable when attacks begin in early rounds. Critically, both families remain vulnerable to \emph{adaptive}, aggregator-aware attacks such as the ``A Little Is Enough'' (LIE)~\cite{baruch2019little} and Min-Max~\cite{shejwalkar2021manipulating} strategies, which craft malicious updates that lie within the statistical support of benign ones and therefore evade any single-statistic screen.
+
+These limitations point to a common gap: a Byzantine defense that operates \emph{without} prior knowledge of the adversary---neither the number of malicious clients, nor a labeled reference model, nor the attack type---while remaining robust under non-IID heterogeneity. Our approach is motivated by a key observation: to do harm at all, a malicious update must displace the aggregate away from where the honest majority is pulling it, and this displacement is visible \emph{within a single round} as a structured deviation from the honest population---in magnitude, direction, robust displacement, sign structure, or inter-client redundancy---provided one measures it against a reference that the minority of attackers cannot move, namely the coordinate-wise median. No single one of these descriptors flags every attack family, but together they leave an adaptive adversary no benign-looking region in which to hide.
+
+Building on this observation, we propose USTAD-FL, an unsupervised anomaly-detection framework that filters malicious clients before aggregation. At its core is a low-cost per-round statistical detector that projects each high-dimensional update into a compact latent space and scores every client on five complementary robust signals, each referenced to the coordinate-wise median of the round, so that the detector reacts from the first post-warm-up round without any update history or reference data. The per-round scores are smoothed and compared against a dual adaptive-quantile/absolute threshold, after which only the trusted subset is aggregated. Motivated by the intuition that Byzantine participation is also \emph{temporally} inconsistent, we additionally construct a multi-channel spatial feature frame per client and train a Convolutional Long Short-Term Memory (ConvLSTM)~\cite{shi2015convolutional} next-frame forecaster as a second, temporal detector arm, smoothed by an Exponentially Weighted Moving Average (EWMA)~\cite{hunter1986exponentially}. A central finding of this paper is that, for the untargeted attacks studied here, this temporal arm is \emph{redundant}: it never improves detection over the statistical detector, for a structural reason we make precise in Section~\ref{sec:method}. We evaluate USTAD-FL against the Gaussian, LIE~\cite{baruch2019little}, and Min-Max~\cite{shejwalkar2021manipulating} attacks on two benchmarks and compare it with three state-of-the-art defenses spanning both families: Multi-Krum~\cite{blanchard2017machine}, FLTrust~\cite{cao2020fltrust}, and FLDetector~\cite{zhang2022fldetector}.
+
+The comparison yields a result worth stating at the outset, because it is a different kind of claim from the one such papers usually make. What distinguishes USTAD-FL is less that it wins most configurations---though it does, leading all defenses in five of the six we evaluate---than that it is the only method that never fails. Two baselines have an outright catastrophic cell: undefended FedAvg drops to $0.089$ and FLDetector to $0.100$, both near-random. The other two never collapse but never excel either, and their worst cases sit far below ours: $0.587$ for FLTrust and $0.577$ for Multi-Krum, against $0.736$ for USTAD-FL, a margin of roughly $15$ accuracy points. This is the practically relevant property for a defense that must be deployed before the adversary is known: a server cannot choose its aggregator after seeing the attack, so a rule that is excellent against one attack family and poor against another offers no operational guarantee. Consistency across the threat space, not peak accuracy against any single threat, is what USTAD-FL buys.
+
+The main contributions of this paper are summarized as follows.
+\begin{itemize}
+    \item We propose USTAD-FL, a server-side anomaly-detection framework that excludes Byzantine clients before aggregation \emph{without} assuming the number of malicious clients, a labeled reference model, or the attack type, and that remains effective under non-IID heterogeneity. Its core is a low-cost statistical detector that is \emph{aggregator-agnostic} and purely \emph{cross-sectional}: every score is derived from the current round's submitted updates alone, so the detector needs no historical trajectory and no reference data, and can be stacked on top of any aggregation rule.
+    \item We design a five-signal robust-statistics screen that references each client to the coordinate-wise median of the round along five complementary axes---norm inflation, cosine deviation, MAD-normalized displacement, signed disagreement, and pairwise clone similarity---so that the heterogeneous signatures of norm-inflating (Gaussian), sub-mean (LIE), and clone-type (Min-Max) attacks are jointly observable by a single test; a two-sided robust normalization resolves the score-polarity inversion that adaptive attacks such as LIE induce.
+    \item We report a \emph{rigorous negative result} on spatio-temporal modelling. Motivated by the intuition that malicious participation is temporally inconsistent, we build and evaluate a ConvLSTM next-frame forecaster as a second, temporal detector arm, and then show---both by a structural argument and by an offline ablation over the logged per-client scores of the $66$ runs for which both arms were instrumented---that it adds \emph{no} detection value for untargeted attacks: it is dominated by the statistical detector in every configuration. The mechanism is a harm--persistence coupling: inflicting sustained harm requires a persistent bias, which is by construction temporally predictable, so the temporally-surprising part of an update is the harmless part.
+    \item We conduct an evaluation on MNIST and Fashion-MNIST under three representative attacks at a $40\%$ adversarial fraction and high non-IID heterogeneity, comprising a head-to-head comparison against three state-of-the-art defenses---together with a per-round detection study. USTAD-FL matches or exceeds the strongest baseline in every configuration, including Multi-Krum, which is granted privileged knowledge of the adversary count, and it is the only method whose accuracy never degrades below $0.736$ in any dataset--attack setting.
+\end{itemize}
+
+The remainder of this paper is organized as follows. Section~\ref{sec:preliminaries} reviews preliminaries and related work. Section~\ref{sec:formulation} formalizes the problem. Section~\ref{sec:method} presents the proposed method. Section~\ref{sec:experiments} reports experimental results. Section~\ref{sec:conclusion} concludes the paper.
+
+%=============================================================================
+\section{Preliminaries and Related Work}
+\label{sec:preliminaries}
+%=============================================================================
+
+\subsection{Federated Learning}
+
+We consider a standard FL system with Federated Averaging (FedAvg)~\cite{mcmahan2017communication} comprising a central server~$S$ and a set of~$N$ clients. Each client~$k$ holds a private training dataset~$D_k$ with~$n_k$ samples, and $n_{\text{total}} = \sum_{k=1}^{N} n_k$ denotes the total number of training samples across all clients. At communication round~$t$, the server broadcasts the current global parameter vector~$\mathbf{w}^t$ to the participating clients. Each client performs several steps of local training and returns its local update~$\mathbf{w}_{k,t+1}$ to the server, which then aggregates these updates by computing a weighted average of the client parameters according to their local dataset sizes. The FedAvg update rule is defined as:
+\begin{equation}
+\mathbf{w}^{t+1} = \sum_{k=1}^{N} \frac{n_k}{n_{\text{total}}} \mathbf{w}_{k,t+1},
+\label{eq:fedavg}
+\end{equation}
+where each client's contribution is weighted by its local dataset size. Recently, algorithms such as FedProx~\cite{li2020federated} and SCAFFOLD~\cite{karimireddy2021scaffold} have achieved better performance than FedAvg. However, they only modify the local update procedure at the client side while the server-side aggregator remains unchanged. Since our proposed method operates solely on the server side, it is compatible with any aggregation rule.
+
+\subsection{Byzantine Attacks in Federated Learning}
+
+While FL preserves the privacy of client data, it introduces a new security threat: compromised clients can submit arbitrary updates that degrade the global model's performance or divert its convergence in a harmful direction. Several studies~\cite{yin2018byzantine, shi2022challenges} have shown that manipulating client updates to craft malicious contributions can be highly effective at reducing global model performance. In the most extreme case, a single malicious client can significantly reduce the global model accuracy. Moreover, because FL training iterates over multiple rounds, malicious clients can gain additional information to craft malicious updates that closely resemble benign ones, thereby bypassing anomaly detection~\cite{baruch2019little}. In realistic deployments, non-IID data is a common challenge when coordinating multiple clients. Over multiple communication rounds, divergent client updates may confuse statistical robust aggregators~\cite{blanchard2017machine, yin2018byzantine}. To evaluate our solution, we define a Byzantine threat model along four dimensions:
+
+\begin{itemize}
+    \item \textbf{Byzantine goals:} We focus on \textit{convergence-prevention} (untargeted) attacks~\cite{baruch2019little, shejwalkar2021manipulating}, in which Byzantine clients seek to reduce the global model's accuracy across all inputs and thereby render it unusable. Targeted \textit{backdoor} attacks---which corrupt the model only on trigger-bearing inputs while preserving its overall accuracy---have a more localized footprint and are left as future work.
+
+    \item \textbf{Byzantine knowledge:} The attacker may have knowledge about data, model updates (or gradients), and the aggregation rule. In~\cite{baruch2019little, fang2020local}, attackers possess full or partial knowledge of training data and model updates of all participating clients. We also consider the scenario where attackers possess certain benign data to optimize malicious update generation without detection~\cite{shejwalkar2021manipulating}. The attacker may know the aggregation rules and solve optimization problems to generate malicious updates that are harmful yet remain within acceptable limits.
+
+    \item \textbf{Byzantine capability:} Attackers can manipulate client devices and interfere with the communication between clients and the server through Man-In-The-Middle (MITM) attacks. We assume that the attacker controls a subset of client devices, typically fewer than 50\% of the total clients.
+
+    \item \textbf{Byzantine behavior:} In each communication round, malicious clients participate in the training process. To evaluate our solution under extreme conditions, we assume that in each communication round, all malicious clients submit their updates to maximize global model corruption.
+\end{itemize}
+
+\noindent\textbf{Defender's perspective:} Since Byzantine attacks can be highly effective even with a small number of compromised clients, attackers can adaptively change their strategies due to the public nature of the global model. Our solution must achieve high detection accuracy while ensuring fast convergence without prior knowledge of the client dataset or the attacker's behavior.
+
+\subsection{Related Work}
+
+We group existing defenses against Byzantine clients into two families---\emph{robust aggregators} and \emph{trust/history-based detectors}---and summarize their assumptions and capabilities in Table~\ref{tab:related_comparison}. Robust Aggregator (RA) methods replace the FedAvg mean with a statistically robust rule, building on the premise that honest gradients cluster together whereas malicious gradients deviate significantly.
+
+\begin{itemize}
+    \item \textbf{Krum}~\cite{blanchard2017machine}: Instead of averaging all client gradients as in FedAvg, Krum selects the single most reliable gradient based on the Euclidean distance between gradients. Krum is resilient to Byzantine behavior and robust to outliers.
+
+    \item \textbf{Multi-Krum}~\cite{blanchard2017machine}: An extension of Krum that selects multiple reliable gradients and averages them. It improves convergence speed while retaining Byzantine resistance.
+
+    \item \textbf{Median}~\cite{yin2018byzantine}: A robust statistical method that uses the coordinate-wise median instead of the mean. Since the median is not affected by outliers, malicious gradients with extremely large or small values do not significantly impact the aggregation result.
+
+    \item \textbf{Trimmed Mean}~\cite{yin2018byzantine}: Another robust statistical method removes gradients with extremely large or small values, then averages the remaining values. This process eliminates anomalous gradients submitted by Byzantine clients.
+\end{itemize}
+
+Although these methods are effective against certain Byzantine attacks, they require strong assumptions about the number of malicious clients. These assumptions are usually impractical in the real world and may lead to information loss if they are not accurate. Moreover, Krum and Multi-Krum are robust but suffer from slow convergence, whereas Median and Trimmed Mean remain susceptible to stealthy attacks that stay within their filtering bounds.
+
+Another approach is to limit or eliminate the impact of Byzantine clients by assigning weights to updates. The server evaluates client model updates to determine their impact on the global model. Suspicious clients with negative contributions are removed from aggregation or assigned low weights.
+
+\begin{itemize}
+    \item \textbf{FLTrust}~\cite{cao2020fltrust}: A robust aggregation rule that assigns a trust score to each model update to minimize the impact of malicious updates. FLTrust requires a clean root dataset at the server side to train a reference model. In each communication round, the server aligns each client's update with the reference model using cosine similarity. The server also normalizes client updates to match the reference model magnitude, preventing malicious clients from influencing aggregation through large updates. The final global update is a weighted average of the normalized client updates with weights based on client trust scores.
+
+    \item \textbf{FLDetector}~\cite{zhang2022fldetector}: A Byzantine attack detection method based on anomalies in client update history. The server uses the Cauchy mean-value theorem and the L-BFGS algorithm~\cite{liu1989limited} to estimate the Hessian matrix of each client update, thereby predicting the update each client should send in the next communication. It then compares client update magnitudes to match the server's received update and the predicted update, and assigns a suspicion score to identify malicious clients. FLDetector demonstrates good performance, but it is less reliable when attacks begin in early training rounds.
+\end{itemize}
+
+These trust- and history-based detectors exploit deeper structure in client updates and are therefore better at identifying Byzantine patterns under non-IID data than purely geometric rules. However, they still struggle against large malicious populations and adaptive attacks, and FLDetector in particular requires a long benign update history and therefore reacts slowly to poisoning that begins before that history is established.
+
+A third and most closely related family forgoes the aggregator modification entirely and instead \emph{detects and filters} malicious clients from the update population before a plain average. FoolsGold~\cite{fung2020foolsgold} down-weights coordinated (sybil) clients by their pairwise update similarity, assuming neither an attacker-count bound nor auxiliary data; CONTRA~\cite{awan2021contra} builds a cosine-reputation defense on the same idea. SignGuard~\cite{xu2022signguard} filters clients using magnitude, sign, and pairwise-similarity statistics---anticipating three of the five signals we adopt---and clusters them (mean-shift/$k$-means) with an explicit analysis of the LIE attack. FLARE~\cite{qian2024flare} scores trust from penultimate-layer representations, and FLGuard~\cite{lee2023flguard} trains an ensemble of contrastive models to detect malicious updates under non-IID data without a clean set. USTAD-FL belongs squarely to this family, and we state its overlap plainly rather than obscure it: its clone score is the FoolsGold coordination signal, and its norm, sign, and similarity signals overlap SignGuard's. What distinguishes USTAD-FL is \emph{mechanism}, not the invention of a new signal. It references every client to the round's coordinate-wise median and scores it \emph{purely per round}, with no clustering step (unlike SignGuard, whose clusters can fragment benign clients under heterogeneity), no accumulated history (unlike FoolsGold and FLDetector), and no learned or contrastive model to train (unlike FLARE and FLGuard). It is thus the assumption-lightest and computationally cheapest member of the family. Establishing whether this simplicity costs detection power relative to the nearest such defenses---SignGuard and DnC~\cite{shejwalkar2021manipulating}, the latter being the defense from the very work that introduces our Min-Max attack---is the comparison that matters most for the approach, and we return to it as the priority evaluation in Section~\ref{sec:conclusion}.
+
+\begin{table}[t]
+\centering
+\caption{Qualitative comparison of representative Byzantine-robust FL defenses.}
+\label{tab:related_comparison}
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Method} & \textbf{No~$M$} & \textbf{No root} & \textbf{Adapt.} & \textbf{Non-IID} & \textbf{Filter} \\
+\midrule
+Krum/M-Krum~\cite{blanchard2017machine} & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ \\
+Median/Tr.Mean~\cite{yin2018byzantine} & $\times$ & \checkmark & $\times$ & $\circ$ & $\times$ \\
+FLTrust~\cite{cao2020fltrust} & \checkmark & $\times$ & $\circ$ & $\circ$ & $\times$ \\
+FLDetector~\cite{zhang2022fldetector} & \checkmark & \checkmark & $\circ$ & $\circ$ & \checkmark \\
+FoolsGold~\cite{fung2020foolsgold} & \checkmark & \checkmark & $\circ$ & $\circ$ & \checkmark \\
+SignGuard~\cite{xu2022signguard} & \checkmark & \checkmark & \checkmark & $\circ$ & \checkmark \\
+FLGuard~\cite{lee2023flguard} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\textbf{USTAD-FL} & \checkmark & $\circ^{\dagger}$ & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize \raggedright \checkmark: satisfied; $\circ$: partially satisfied; $\times$: not satisfied. $^{\dagger}$USTAD-FL requires no labeled reference model; its five detection signals use no server-side data.\par}
+\end{table}
+
+Table~\ref{tab:related_comparison} situates USTAD-FL among these defenses along five axes: \textbf{No~$M$}, requiring no assumption on the number of malicious clients; \textbf{No root}, requiring no labeled root dataset as a client-trust reference; \textbf{Adapt.}, robustness to the adaptive LIE and Min-Max attacks; \textbf{Non-IID}, robustness under heterogeneous data, assessed at Dirichlet $\alpha=0.5$ in Section~\ref{sec:experiments}; and \textbf{Filter}, excluding malicious updates before aggregation rather than downweighting them. The marks reflect each method's own reported design and evaluation regime rather than a head-to-head comparison, and the \textbf{Adapt.} column is scoped to the two adaptive attacks named above: robustness to aggregator-targeted attacks, which solve directly for a payload that a particular aggregation rule will accept, lies outside both this comparison and our evaluation. USTAD-FL's only server-side input is a coarse scalar global-improvement signal, one of four adaptive-threshold inputs with weight $0.20$, which is far weaker than a root dataset and can be disabled (Section~\ref{sec:dual_threshold}). We do not claim it is qualitatively unique: recent detect-and-filter methods such as FLGuard~\cite{lee2023flguard} relax the same assumptions (no malicious count, no clean set, non-IID robust, and filtering before aggregation), so the all-satisfied row is shared rather than ours alone. USTAD-FL's distinction is instead twofold. First, \emph{mechanism}: among assumption-light detect-and-filter defenses it is the only one that is simultaneously training-free and purely per-round, scoring each client on complementary robust statistics referenced to a median the attacker minority cannot move---no clustering, no history, no learned model. Second, and more importantly for this paper, we contribute not another detector but a \emph{characterization}: a rigorous account, empirical and structural, of when the temporal modeling that heavier detectors employ does and does not add value for untargeted Byzantine attacks (Sections~\ref{sec:convlstm_ewma} and~\ref{sec:ablation}).
+
+These qualitative distinctions translate into a measurable separation, and it is useful to preview how each baseline family fails so that the experiments of Section~\ref{sec:defense_comparison} can be read against a stated expectation. \emph{Geometric selection} (Multi-Krum) trusts the winner of a distance criterion, which presumes that adversarial updates are the geometric outliers; under non-IID data that presumption weakens, since benign clients legitimately diverge, and the rule is competitive under Gaussian and LIE yet drops to $0.577$ under Min-Max, whose whole design is to place the malicious vectors inside the benign cluster. \emph{History-based consistency} (FLDetector) needs several rounds before its test is reliable, so it is defeated by an attack that destroys the model inside that window---it collapses to $\approx0.10$ in five of the six configurations, the exception being Fashion-MNIST under Min-Max ($0.704$). \emph{Root-dataset trust} (FLTrust) avoids both failure modes and is the most stable baseline, but it pays for that with a labeled server-side dataset and, in our non-IID setting, with a ceiling: it never exceeds $0.764$ and averages $0.668$. USTAD-FL's median-referenced, per-round screen is subject to none of these three dependencies---no geometric criterion that non-IID divergence can confound, no history to wait for, no root data to curate---which is why it holds $0.736$--$0.888$ across every configuration while each baseline family fails somewhere. Its own dependency is that a client must look anomalous \emph{within the round}, measured against the honest population of that round.
+
+%=============================================================================
+\section{Problem Formulation}
+\label{sec:formulation}
+%=============================================================================
+
+In this section, we formalize the Byzantine-robust federated learning problem, in which a parameter server and a group of clients collaborate to train a shared model. We first describe the system model, then formalize the standard FedAvg learning objective, and subsequently introduce the Byzantine threat model together with some attack strategies. Finally, we formulate the Byzantine-robust learning task as a constrained optimization problem, which motivates the per-round screening developed in Section~\ref{sec:method}.
+
+\subsection{Notation}
+
+Table~\ref{tab:notation} summarizes the principal symbols used throughout this paper.
+
+\begin{table}[t]
+\centering
+\caption{Summary of Principal Notation}
+\label{tab:notation}
+\begin{tabular}{@{}cl@{}}
+\toprule
+\textbf{Symbol} & \textbf{Description} \\
+\midrule
+$N$ & Total number of clients \\
+$\mathcal{K}$ & Set of all client indices $\{1, 2, \ldots, N\}$ \\
+$M$ & Number of malicious clients \\
+$\mathcal{M}$ & Set of malicious client identifiers \\
+$S_t$ & Set of participating clients at round $t$ \\
+$\tilde{S}_t$ & Filtered participant set after anomaly exclusion \\
+$D_k$ & Private local dataset of client $k$ \\
+$n_k$ & Size of $D_k$ \\
+$\mathbf{w}^t$ & Global model parameter vector at round $t$ \\
+$\mathbf{w}_{k,t+1}$ & Local model update from client $k$ at round $t$ \\
+$\mathbf{g}_{k,t}$ & Update vector transmitted by client $k$ \\
+$\hat{\mathbf{g}}_{k,t}$ & Potentially corrupted update received by server \\
+$T_w$ & Number of warm-up rounds \\
+$T$ & Temporal window length for ConvLSTM \\
+$H, W$ & Spatial grid dimensions of feature maps \\
+$K$ & Latent space dimension ($K = \min(HW, n_b)$) \\
+$C$ & Number of feature channels (= 5) \\
+$\mathbf{z}_{k,t}$ & Latent code of client $k$ at round $t$ \\
+$\mathbf{F}_{k,t}$ & Feature frame tensor $\in \mathbb{R}^{C \times H \times W}$ \\
+$s_{k,t}$ & Raw ConvLSTM anomaly score \\
+$e_{k,t}$ & EWMA-smoothed anomaly score \\
+$\lambda$ & EWMA decay factor \\
+$q_s$ & Re-evaluation trigger quantile \\
+$q_t$ & Adaptive filtering quantile at round $t$ \\
+$\tau_t^{\text{filt}}$ & Per-round exclusion threshold \\
+$\text{AGG}(\cdot)$ & Server-side aggregation rule \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{System Model}
+
+We consider a group of $N$ clients indexed by $\mathcal{K} = \{1, 2, \ldots, N\}$, collaborating with a central server. Local data are distributed across clients in a heterogeneous, non-IID distribution; each client $k \in \mathcal{K}$ holds a private dataset $D_k$ whose label distribution follows a Dirichlet distribution with concentration parameter $\alpha$, a standard proxy for real-world data heterogeneity in federated settings~\cite{hsieh2020non}. In general only a fraction $\kappa \in (0, 1]$ of the clients participate in each communication round.
+
+Let $\mathbf{w} \in \mathbb{R}^d$ denote the $d$-dimensional parameter vector of the shared global model $f_{\mathbf{w}}(\cdot)$. At the beginning of round~$t$, the server broadcasts $\mathbf{w}^t$ to the participating set $S_t \subseteq \mathcal{K}$. Each client $k \in S_t$ then performs $E$ epochs of mini-batch stochastic gradient descent (SGD) with learning rate~$\eta$ on its local dataset $D_k$, producing the updated parameter vector $\mathbf{w}_{k,t+1}$, which is subsequently uploaded to the server.
+
+\subsection{Federated Learning Objective}
+
+Let $n_k = |D_k|$, $n_{\text{total}} = \sum_{k=1}^{N} n_k$, and $n_t = \sum_{k \in S_t} n_k$ denote, respectively, the local sample size of client~$k$, the global sample size, and the round-$t$ participating sample size. The global FL objective is to minimize the data-weighted aggregate of local empirical risks, which can be expressed as
+\begin{equation}
+\min_{\mathbf{w} \in \mathbb{R}^d} F(\mathbf{w}) = \sum_{k=1}^{N} \frac{n_k}{n_{\text{total}}} F_k(\mathbf{w}),
+\label{eq:global_obj}
+\end{equation}
+where the local empirical risk of client~$k$ is given by
+\begin{equation}
+F_k(\mathbf{w}) = \frac{1}{n_k} \sum_{(x,y) \in D_k} \ell(f_{\mathbf{w}}(x), y),
+\label{eq:local_risk}
+\end{equation}
+with $\ell(\cdot, \cdot)$ being a task-specific loss function (e.g., cross-entropy in the case of classification). At each communication round~$t$, the server advances toward~\eqref{eq:global_obj} by collecting the locally updated parameter vectors $\{\mathbf{w}_{k,t+1}\}_{k \in S_t}$ and applying a server-side aggregation rule $\text{AGG}(\cdot)$, namely,
+\begin{equation}
+\mathbf{w}^{t+1} = \text{AGG}\left(\{(\mathbf{w}_{k,t+1}, n_k)\}_{k \in S_t}\right).
+\label{eq:aggregation}
+\end{equation}
+It is worth noting that the choice of $\text{AGG}(\cdot)$ is intentionally left abstract at this stage so as to accommodate the broad family of aggregators studied in the literature, including the data-weighted mean of FedAvg~\cite{mcmahan2017communication}, the distance-based selection of Krum~\cite{blanchard2017machine}, the coordinate-wise trimmed mean and median rules~\cite{yin2018byzantine}, and trust-weighted aggregators such as FLTrust~\cite{cao2020fltrust}. Regardless of the specific rule adopted, \eqref{eq:aggregation} is iterated across $T_{\text{total}}$ rounds with the expectation that $\mathbf{w}^{T_{\text{total}}}$ converges to a neighborhood of the minimizer of~\eqref{eq:global_obj}.
+
+\subsection{Byzantine Threat Model}
+
+We assume that an adversary can compromise up to $M < N/2$ of the clients in $\mathcal{K}$. The compromised clients comply with the FL protocol at the message-exchange level but are free to upload arbitrarily crafted parameter vectors in place of those produced by honest local training, while the remaining $N - M$ clients behave honestly. Let $\mathcal{M} \subset \mathcal{K}$ denote the malicious set, with $|\mathcal{M}| = M$. In this work, we further assume that $\mathcal{M}$ is fixed at the onset of the attack phase, following an initial warm-up of $T_w$ rounds during which all clients are honest. Such an assumption is consistent with the threat models adopted in~\cite{baruch2019little, shejwalkar2021manipulating}. Our evaluation uses full participation ($\kappa=1$): all $N$ clients report in every round, so the malicious set forms a fixed fraction $M/N$ of the participants in \emph{every} round. The minority condition $M<N/2$ therefore holds per round rather than only in expectation, and the coordinate-wise median of the round remains a benign reference at all times---a property the statistical detector of Section~\ref{sec:stat_detector} relies on. We note that under partial participation ($\kappa<1$) the per-round malicious count would instead be a random variable that can transiently exceed one half; characterizing the detector in that regime is left to future work.
+
+Following~\cite{shejwalkar2021manipulating, baruch2019little}, the adversary is treated as omniscient: at each round~$t$, it has full knowledge of the current global model $\mathbf{w}^t$ and of the local updates submitted by all participants in $S_t$. Let $\mathbf{g}_{k,t} = \mathbf{w}_{k,t+1}$ denote the update transmitted by client~$k$ in round~$t$. The vectors received by the server under the Byzantine attack can be expressed as
+\begin{equation}
+\hat{\mathbf{g}}_{k,t} =
+\begin{cases}
+\mathbf{g}_{k,t} & \text{if } k \notin \mathcal{M}, \\
+\mathcal{A}(G_t, \mathbf{w}^t, k) & \text{if } k \in \mathcal{M},
+\end{cases}
+\label{eq:byzantine_update}
+\end{equation}
+where $G_t = \{\mathbf{g}_{j,t} : j \in S_t\}$ collects all local updates and $\mathcal{A}(\cdot)$ denotes the attack function. Substituting~\eqref{eq:byzantine_update} into a data-weighted mean aggregator, the server produces the poisoned global model
+\begin{equation}
+\hat{\mathbf{w}}^{t+1} = \sum_{k \in S_t} \frac{n_k}{n_t} \hat{\mathbf{g}}_{k,t}.
+\label{eq:poisoned_agg}
+\end{equation}
+
+\subsection{Byzantine Attack Strategies}
+
+We consider three representative instantiations of $\mathcal{A}(\cdot)$, ranging from a simple stochastic perturbation to highly engineered model-poisoning strategies. All three perturb the submitted update relative to the benign population and are therefore \emph{aggregator-agnostic}: none of them is tailored to a particular aggregation rule. To simplify the exposition, let $\boldsymbol{\mu}_t = \frac{1}{|B_t|} \sum_{j \in B_t} \mathbf{g}_{j,t}$ denote the coordinate-wise mean of the benign updates and $\boldsymbol{\sigma}_t$ their coordinate-wise standard deviation, where $B_t = S_t \setminus \mathcal{M}$ is the honest participant set in round~$t$.
+
+\subsubsection{Gaussian Noise Attack}
+Under this attack, each Byzantine client independently perturbs its local update by adding zero-mean Gaussian noise with standard deviation $\sigma_g > 0$, which can be expressed as
+\begin{equation}
+\hat{\mathbf{g}}_{k,t} = \mathbf{g}_{k,t} + \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma_g^2 \mathbf{I}_d).
+\label{eq:gaussian_attack}
+\end{equation}
+Although straightforward to launch, the effectiveness of this attack diminishes rapidly as $\sigma_g$ grows beyond the typical norm range of benign updates: such updates become statistically distinguishable from honest contributions and can be flagged by even simple norm-based screens.
+
+\subsubsection{Little-Is-Enough (LIE) Attack~\cite{baruch2019little}}
+The LIE attack is a far more sophisticated strategy that remains statistically concealed within the natural variation of honest updates while still steering the aggregated model away from convergence. Rather than injecting conspicuously large perturbations, every client in $\mathcal{M}$ transmits the same engineered vector, which is given by
+\begin{equation}
+\hat{\mathbf{g}}_{k,t} = \boldsymbol{\mu}_t - z_{\max} \cdot \boldsymbol{\sigma}_t, \quad \forall\, k \in \mathcal{M},
+\label{eq:lie_attack}
+\end{equation}
+where $z_{\max}$ denotes the largest perturbation scale that preserves the statistical plausibility of the malicious updates. Letting $s = \lfloor N/2 \rfloor + 1 - M$ denote the minimum number of supporters required to pass majority-based screening, $z_{\max}$ can be calculated as
+\begin{equation}
+z_{\max} = \Phi\left(\frac{N - M - s}{N - M}\right),
+\label{eq:zmax}
+\end{equation}
+where $\Phi(\cdot)$ is the standard normal cumulative distribution function. It is worth noting that LIE is particularly damaging against aggregators that rely on coordinate-wise statistical filtering, since the malicious updates are deliberately positioned within the retained support of the benign distribution.
+
+\subsubsection{Min-Max Agnostic Attack~\cite{shejwalkar2021manipulating}}
+The Min-Max attack is an aggregator-agnostic poisoning strategy that maximizes the magnitude of the adversarial perturbation subject to a detectability constraint. The attack chooses a perturbation direction $\mathbf{p} = -\boldsymbol{\sigma}_t$ and seeks the largest scalar $\gamma > 0$ such that the corrupted updates remain geometrically indistinguishable from the benign ones, which can be formulated as
+\begin{equation}
+\max_{\gamma} \;\; \gamma \quad \text{s.t.} \;\; \max_{j \in B_t} \|\boldsymbol{\mu}_t + \gamma \mathbf{p} - \mathbf{g}_{j,t}\| \leq \max_{i,j \in B_t} \|\mathbf{g}_{i,t} - \mathbf{g}_{j,t}\|.
+\label{eq:minmax_attack}
+\end{equation}
+Each Byzantine client then submits $\hat{\mathbf{g}}_{k,t} = \boldsymbol{\mu}_t + \gamma^* \mathbf{p}$, where $\gamma^*$ is the optimal solution to~\eqref{eq:minmax_attack}. Since the constraint forces the malicious updates to lie within the convex hull of the benign cluster, the Min-Max attack is particularly difficult to detect using geometric or distance-based defenses. Notably, an additional structural side-effect of~\eqref{eq:minmax_attack} is that all Byzantine clients converge to the same engineered vector, so they appear as near-identical clones at the server.
+
+\subsection{Byzantine-Robust FL Problem}
+\label{sec:p1}
+
+To handle the two-fold objective of excluding Byzantine participants while retaining enough honest updates for the aggregate to remain statistically meaningful, we formulate an optimization problem of minimizing the global empirical risk by jointly designing (i) a per-round decision rule that identifies a trusted participant subset $\widetilde{S}_t \subseteq S_t$, and (ii) a server-side aggregator $\text{AGG}(\cdot)$ that operates on $\widetilde{S}_t$ rather than on the full participant set $S_t$. Let $\mathbf{w}^{T_{\text{total}}}(\widetilde{S}_{1:T_{\text{total}}})$ denote the global model produced after $T_{\text{total}}$ rounds under a sequence of trusted subsets $\widetilde{S}_{1:T_{\text{total}}}=\{\widetilde{S}_t\}_{t=1}^{T_{\text{total}}}$. Accordingly, the formulated problem can be expressed as
+\begin{subequations}\label{eq:p1}
+\begin{align}
+(\mathrm{P1}):\quad\min_{\widetilde{S}_{1:T_{\text{total}}}}\;& F\!\left(\mathbf{w}^{T_{\text{total}}}(\widetilde{S}_{1:T_{\text{total}}})\right) \label{eq:p1_obj}\\
+\text{s.t.}\quad &\widetilde{S}_t \subseteq S_t,\quad \forall\,t\in\{1,\dots,T_{\text{total}}\}, \tag{P1a}\\
+&|\widetilde{S}_t| \ge S_{\min},\quad \forall\,t, \tag{P1b}\\
+&\widetilde{S}_t \cap \mathcal{M} = \emptyset \quad \text{(ideal Byzantine-free)}, \tag{P1c}\\
+&\mathbf{w}^{t+1}=\text{AGG}\!\left(\{(\hat{\mathbf{g}}_{k,t},n_k)\}_{k\in\widetilde{S}_t}\right),\tag{P1d}
+\end{align}
+\end{subequations}
+where (P1a) restricts the trusted subset to clients that actually participate in round~$t$, (P1b) enforces a minimum participation level $S_{\min}$ to keep the aggregator statistically meaningful, (P1c) is the idealized Byzantine-free condition, and (P1d) couples consecutive rounds through the aggregation rule.
+
+Solving Problem (P1) is challenging for three reasons. First, the malicious set $\mathcal{M}$ is unknown to the server; consequently, (P1c) is generally not directly verifiable and must be replaced by a data-driven proxy. Second, the attack strategies introduced in~\eqref{eq:gaussian_attack}--\eqref{eq:minmax_attack} exhibit fundamentally different statistical signatures: Gaussian noise inflates the update norm, Min-Max forces the malicious clients to behave as clones near the benign centroid, and LIE produces a fixed sub-mean vector that is, by design, locally indistinguishable from the benign distribution. Hence, no single descriptor—be it norm, distance, or directional similarity—is sufficient to flag all three families simultaneously. Third, tight latency budgets at the server preclude both per-round brute-force scoring of every client and the use of computationally heavy verification primitives; accordingly, the server must allocate its detection budget adaptively over rounds and clients.
+
+In particular, conventional deterministic optimization methods are difficult to apply to Problem (P1) because the trusted-subset variables $\widetilde{S}_{1:T_{\text{total}}}$ are combinatorial, the malicious-set indicator is hidden, and the per-round screening must be carried out under tight latency constraints at the server. Supervised learning approaches are equally unsuitable, since they would require per-client malicious/benign labels that are by definition unavailable at the server. Fortunately, the constraint that resists direct optimization is also the one that admits a statistical surrogate: an update that shifts the aggregate away from the honest majority must, in the same round, depart from the honest population along at least one measurable axis. Hence, we replace the intractable indicator (P1c) with a data-driven proxy, namely a per-round anomaly score computed from the submitted updates alone, and we propose an unsupervised detection framework built on that proxy, referred to as USTAD-FL.
+
+The proposed framework, presented in Section~\ref{sec:method}, centers on a low-cost five-signal statistical detector that references every client to the coordinate-wise median of the round and tolerates the LIE polarity inversion through a two-sided MAD-based normalization, embedded in a dual-threshold adaptive filter that exposes the trade-off between robustness and participation as a single tunable strictness index. Because the second challenge above suggests that malicious behavior may also be inconsistent \emph{across} rounds, we further investigate a Convolutional LSTM~\cite{shi2015convolutional} temporal forecaster as a complementary arm. Notably, a central result of Section~\ref{sec:method} is that, for the untargeted attacks considered here, this temporal modelling is redundant with the statistical screen.
+
+%=============================================================================
+\section{Proposed Method}
+\label{sec:method}
+%=============================================================================
+
+To solve Problem (P1) under the challenges identified in Section~\ref{sec:p1}, we develop an \emph{Unsupervised Statistical Anomaly Detection} framework for federated learning, referred to as USTAD-FL. The design rests on one observation from Section~\ref{sec:formulation}: while no single statistic reliably separates a benign-but-divergent update from a malicious one under non-IID data, a malicious update that does harm must deviate from the honest population along at least one of several complementary axes when measured against a reference that the attacker minority cannot move, namely the coordinate-wise median. Accordingly, the primary detector is a low-cost, per-round \emph{statistical} screen over these axes, from which the trusted subset $\widetilde{S}_t$ of (P1) is identified.
+
+However, a screen alone does not determine \emph{how many} clients to exclude, and a fixed exclusion rate is either too permissive when the federation is under attack or too aggressive when it is not. Therefore, we embed the screen in a dual-threshold filter whose strictness adapts to the empirical threat level of each round, so that constraints (P1b) and (P1c) are respected without any prior knowledge of $M$. Guided by the further intuition that Byzantine participation may also be temporally inconsistent, we additionally construct a ConvLSTM temporal forecaster as a second arm and fuse the two scores. It is worth noting that Section~\ref{sec:convlstm_ewma} and the ablation of Section~\ref{sec:ablation} then establish that, for the untargeted attacks studied here, this temporal arm adds nothing the statistical screen does not already provide.
+
+Fig.~\ref{fig:pipeline} illustrates the end-to-end workflow of the proposed framework.
+
+\subsection{Framework Overview}
+
+At each federated round~$t$, the server broadcasts the current global model $\mathbf{w}^t$ to the participating clients. Each client performs local training and returns its update $\hat{\mathbf{g}}_{k,t}$ to the server. Instead of directly aggregating the received updates, the server first projects each update into a compact latent space, scores every client with a low-cost per-round statistical detector, and aggregates only the trusted subset $\widetilde{S}_t$. A second, \emph{temporal} detector arm---a ConvLSTM next-frame forecaster over a spatial feature frame---is fused with the statistical score; we build and evaluate it because quantifying its contribution is one of the results of this paper, but, as Section~\ref{sec:ablation} shows, the statistical detector is the load-bearing screen. The framework consists of five stages, summarized as follows.
+\begin{enumerate}
+    \item \textbf{SVD latent projection:} Extract the layer-filtered update of each client and project it into a fixed low-dimensional latent space using a Singular Value Decomposition (SVD) basis fitted from clean warm-up rounds.
+    \item \textbf{Spatio-temporal feature construction (temporal arm):} Encode each client's latent update into a multi-channel spatial feature frame and maintain a per-client sliding temporal window, as input to the temporal detector.
+    \item \textbf{Per-round statistical anomaly detection (primary screen):} Score each client on five complementary signals, namely norm inflation, cosine deviation, MAD-normalized distance from the coordinate-wise median, signed disagreement, and pairwise clone similarity, and combine them into a single statistical anomaly score.
+    \item \textbf{ConvLSTM-EWMA temporal scoring (temporal arm):} A lightweight ConvLSTM forecaster predicts the next feature frame of each client; the squared prediction error is EWMA-smoothed and normalized against the per-round population distribution to yield a two-sided relative score robust to the polarity inversion induced by the LIE attack.
+    \item \textbf{Score fusion and dual-threshold aggregation:} The two detector arms are fused by max-pooling, and the resulting fused score is compared against the smaller of an adaptive quantile threshold and a fixed absolute threshold, after which the trusted subset $\widetilde{S}_t$ is aggregated.
+\end{enumerate}
+
+In what follows, we elaborate on each stage in the order listed; note that stages~2 and~4 constitute the explored temporal arm, whose redundancy with the statistical screen of stage~3 is established in Section~\ref{sec:ablation}. We summarize the overall procedure in Algorithm~\ref{alg:ustad}.
+
+\subsection{SVD Latent Projection}
+\label{sec:svd_projection}
+
+High-dimensional model updates $\mathbf{g}_{k,t} \in \mathbb{R}^d$ are prohibitively expensive to process directly with spatial neural networks. To reduce dimensionality while retaining the directions of maximum variation among client updates, we apply a fixed data-driven projection based on the Singular Value Decomposition (SVD)~\cite{zhang2015singular}, with the basis learned exclusively from benign updates collected during the $T_w$-round warm-up phase.
+
+\subsubsection{Basis Fitting}
+Let $\mathcal{L}$ denote a selected subset of model layers, and let $\boldsymbol{\delta}_{k,t}^{(\mathcal{L})} \in \mathbb{R}^{D}$ denote the corresponding layer-filtered update of client~$k$, i.e.\ the difference between its returned parameters and the current global model restricted to those layers. In our implementation $\mathcal{L}$ comprises the fully-connected head of the client model, which carries the most task-relevant information while keeping $D$ two orders of magnitude below the full parameter count ($D = 66{,}954$ for the CNN used here).
+
+The basis is obtained by a standard centered SVD of the warm-up updates. All updates arriving during warm-up are treated as benign and stacked into a bootstrap matrix $\mathbf{X} \in \mathbb{R}^{n_b \times D}$; the matrix is centered by its column mean~$\boldsymbol{\mu}$, its SVD is computed, and the top-$K$ right singular vectors are retained as the projection basis $\mathbf{B} \in \mathbb{R}^{K \times D}$. Fitting happens once, as soon as $n_b \geq n_{\min}$; since all $N$ clients report in the first round and $N > n_{\min}$, this occurs at $t = 1$, well inside the clean warm-up window and hence on uncorrupted updates only. The latent dimension is $K = \min(HW, n_b)$: the target is the grid size $HW$, so that the projected coordinates tile a spatial map of height~$H$ and width~$W$, but the attainable dimension is capped by the rank of the bootstrap matrix. In our setting $n_b = N = 100$ and $HW = 256$, hence $K = 100$---the basis is rank-limited by the number of warm-up samples rather than by the grid---and the latent code is zero-padded from $K$ to $HW$ before reshaping, leaving $HW - K$ cells structurally inactive. Both $\mathbf{B}$ and~$\boldsymbol{\mu}$ are fixed after fitting and reused unchanged for all subsequent rounds.
+
+\subsubsection{Runtime Projection}
+At each round $t > T_w$, the server projects every incoming update into the fixed latent space, namely,
+\begin{equation}
+\mathbf{z}_{k,t} = \mathbf{B}\bigl(\boldsymbol{\delta}_{k,t}^{(\mathcal{L})} - \boldsymbol{\mu}\bigr) \in \mathbb{R}^K.
+\label{eq:projection}
+\end{equation}
+The projection yields a compact latent code of dimension $K \ll D$ that captures the dominant directions of update variation learned from clean warm-up data. We stress that the projection is a \emph{dimensionality-reduction} step, not itself a detector: we do not claim that malicious updates are separable in the SVD subspace, and indeed recent spectral analyses report that adaptive attacks such as Min-Max can be crafted to be spectrally indistinguishable from benign updates. The separation in USTAD-FL is produced by the median-referenced statistics of Section~\ref{sec:stat_detector} computed on these latent codes---in particular the clone score, which flags the near-identical vectors that LIE and Min-Max emit regardless of where they sit in the subspace---and not by the projection geometry alone.
+
+\subsection{Spatio-Temporal Feature Construction (Temporal Arm)}
+\label{sec:frame}
+
+The feature frame constructed in this subsection is used \emph{only} by the temporal ConvLSTM arm of Section~\ref{sec:convlstm_ewma}; the primary statistical detector of Section~\ref{sec:stat_detector} operates directly on the latent codes and raw updates and does not require it. To enable a convolutional architecture to capture the structured co-variation of the latent updates, the latent code $\mathbf{z}_{k,t}$ is reshaped into a spatial map of size $H \times W$ and stacked with four complementary statistics so as to form a $C$-channel feature frame $\mathbf{F}_{k,t} \in \mathbb{R}^{C \times H \times W}$ with $C = 5$. The multi-channel design is intended to make diverse aspects of the update simultaneously observable to the forecaster.
+
+\subsubsection{Five-Channel Feature Frame}
+Every channel is a \emph{relative} quantity: each is standardized against the mean and standard deviation of the corresponding statistic taken across the $|S_t|$ participants of the current round, so the server derives the frame entirely from what it already observes. Writing $\hat{(\cdot)}$ for such a population standardization, the frame $\mathbf{F}_{k,t} \in \mathbb{R}^{5 \times H \times W}$ stacks
+\begin{equation}
+\mathbf{F}_{k,t} = \Bigl[\;\widehat{\mathbf{z}}_{k,t}\;,\;\; \mathrm{sign}(\mathbf{z}_{k,t})\;,\;\; \widehat{|\mathbf{z}_{k,t}|}\;,\;\; \hat{N}_{k,t}\mathbf{1}\;,\;\; \hat{c}_{k,t}\mathbf{1}\;\Bigr],
+\label{eq:frame}
+\end{equation}
+where each entry is reshaped into an $H \times W$ map. The first three channels are spatially resolved---latent deviation, sign structure, and magnitude deviation---while the last two broadcast a single standardized scalar across the map: $N_{k,t} = \|\mathbf{z}_{k,t}\|_2$, the update norm, and $c_{k,t}$, the cosine similarity between the client's latent code and the population mean direction. The five together make magnitude, orientation, and sign structure simultaneously observable to the forecaster.
+
+It is worth emphasizing what the frame deliberately excludes. A natural sixth channel would be the change in each client's local validation loss, $\Delta\ell_{k,t}$, which appears attractive because it links the latent-space geometry to the client's learning dynamics. We do not use it. Such a quantity is \emph{self-reported}: it is computed on the client's own data and transmitted by the client itself, so an adversary is free to fabricate it and can drive the corresponding channel to whatever value minimizes its own anomaly score. Admitting an attacker-controllable input into the detector would create precisely the kind of single-signal bypass that Section~\ref{sec:preliminaries} criticizes in prior defenses. Every channel in~\eqref{eq:frame} is instead computed by the server from the submitted update alone, and is therefore outside the adversary's direct control.
+
+\subsubsection{Temporal History Buffer}
+For each client $k$, the server maintains a sliding history buffer of the last $H_{\max}$ frames, namely $\mathcal{H}_{k,t} = [\mathbf{F}_{k,t-H_{\max}+1}, \ldots, \mathbf{F}_{k,t}]$. A temporal window of length~$T$ is then extracted as the most recent $T$ consecutive frames, yielding a sequence tensor $\mathbf{S}_{k,t} \in \mathbb{R}^{T \times C \times H \times W}$ that serves as input to the ConvLSTM forecaster.
+
+\subsection{Per-Round Statistical Anomaly Detector}
+\label{sec:stat_detector}
+
+To keep the framework responsive in early rounds before the ConvLSTM forecaster has accumulated sufficient temporal context, we propose a per-round statistical detector that requires no temporal history. Inspired by the observation that, by the Byzantine assumption $M < N/2$, the coordinate-wise median of the participant population always remains a robust, benign reference, the detector measures the deviation of every participant from this reference along five complementary mathematical axes. It is worth noting that these axes are not chosen with any specific attack family in mind; rather, they are selected because they describe a distinct geometric or statistical feature of an update vector magnitude, direction, displacement, sign structure, and inter-client redundancy and any misbehavior that perturbs one of these features will manifest in the corresponding score, irrespective of the underlying generation mechanism. Notably, the use of the median in place of the mean is critical, since the mean itself is shifted by the very malicious clients we attempt to detect.
+
+Let $\{\mathbf{z}_{k,t}\}_{k\in S_t}$ denote the latent codes of the round-$t$ participants and let $\bar{\mathbf{z}}_t = \mathrm{median}_{k \in S_t}(\mathbf{z}_{k,t})$ be the coordinate-wise median reference. Let $\boldsymbol{\delta}_{k,t}^{(\mathcal{L})}$ denote the layer-filtered raw update of client~$k$ defined in Section~\ref{sec:svd_projection}, and let $\mathcal{N}_t^{\mathrm{trim}} = \mathrm{median}\bigl(\bigl\{\|\boldsymbol{\delta}_{j,t}^{(\mathcal{L})}\|_2\bigr\}_{j \in B_t^{\mathrm{trim}}}\bigr)$ be the trimmed median over the bottom-$80\%$ of the participant norms, which is used as a robust benign norm reference.
+
+\subsubsection{Norm Score}
+The norm score quantifies the magnitude of deviation of a client update relative to the participant population. Since any perturbation that drives the update norm well beyond the natural scale of the benign cluster registers as an outlier in $\ell_2$ magnitude, we adopt a log-ratio formulation that is insensitive to small fluctuations yet saturates rapidly under large inflation, which can be expressed as
+\begin{equation}
+r_{k,t}^{(N)} = \min\!\left(1,\; \frac{1}{5}\,\log_2\max\!\left(1,\, \frac{\|\boldsymbol{\delta}_{k,t}^{(\mathcal{L})}\|_2}{\mathcal{N}_t^{\mathrm{trim}}}\right)\right) \in [0,1].
+\label{eq:norm_score}
+\end{equation}
+
+\subsubsection{Cosine Score}
+The cosine score quantifies the angular deviation of a client update from the population reference direction. Specifically, any update whose orientation drifts away from or opposes the median direction of the participant cluster registers a large angular discrepancy, which is given by
+\begin{equation}
+r_{k,t}^{(C)} = \frac{1}{2}\!\left(1 - \frac{\mathbf{z}_{k,t}^{\!\top} \bar{\mathbf{z}}_t}{\|\mathbf{z}_{k,t}\|_2 \, \|\bar{\mathbf{z}}_t\|_2}\right) \in [0,1],
+\label{eq:cos_score}
+\end{equation}
+which maps the latent cosine similarity from $[-1,1]$ to $[0,1]$, with anti-aligned updates approaching unity.
+
+\subsubsection{Distance Score}
+The distance score quantifies the Euclidean displacement of a client's latent code from the population reference and is therefore complementary to the cosine score, which only measures orientation. To suppress the influence of natural client heterogeneity, we adopt a robust z-score based on the median absolute deviation (MAD), which is calculated as
+\begin{align}
+d_{k,t} &= \|\mathbf{z}_{k,t} - \bar{\mathbf{z}}_t\|_2, \quad \tilde{d}_t = \mathrm{median}_k(d_{k,t}), \label{eq:dist_raw}\\
+\mathrm{MAD}_t^{(d)} &= \mathrm{median}_k\bigl(|d_{k,t} - \tilde{d}_t|\bigr), \label{eq:dist_mad}\\
+r_{k,t}^{(D)} &= \tanh\!\left(\frac{0.6745 \, \max(0, d_{k,t}-\tilde{d}_t)}{2\,\mathrm{MAD}_t^{(d)}}\right). \label{eq:dist_score}
+\end{align}
+It is worth noting that the constant $0.6745$~\cite{nist_modified_zscore} converts the MAD into an estimate of the underlying standard deviation under the Gaussian model, while the $\tanh$ saturation continuously bounds the score to $[0,1]$.
+
+\subsubsection{Sign Score}
+The sign score quantifies per-coordinate sign disagreement between a client update and the population reference, weighted by the local amplitude of the reference. By emphasizing the high-amplitude coordinates of the benign median, the score remains insensitive to noise on near-zero coordinates yet sharply responds to systematic sign reversals along the dominant directions of the population, namely,
+\begin{equation}
+r_{k,t}^{(S)} = \frac{\sum_{i=1}^{K} |\bar z_{t,i}|\,\mathbb{1}\{\mathrm{sgn}(z_{k,t,i}) \neq \mathrm{sgn}(\bar z_{t,i})\}}{\sum_{i=1}^{K} |\bar z_{t,i}| + \epsilon},
+\label{eq:sign_score}
+\end{equation}
+so that $r_{k,t}^{(S)}$ rises only when the sign disagreement aligns with the high-amplitude coordinates of the benign median.
+
+\subsubsection{Clone Score}
+The clone score quantifies inter-client redundancy by measuring how closely a client update resembles its closest peer in the population. Whereas the previous four scores compare each client to the population reference, this score compares clients to one another and therefore captures coordinated submissions whose pairwise similarity exceeds anything attributable to ordinary data heterogeneity. Let $\hat{\mathbf{z}}_{k,t} = \mathbf{z}_{k,t} / \|\mathbf{z}_{k,t}\|_2$. We compute the maximum off-diagonal cosine similarity for each client and rescale it through a hinge transformation, which can be expressed as
+\begin{equation}
+\begin{aligned}
+m_{k,t} &= \max_{j \in S_t,\, j \neq k} \hat{\mathbf{z}}_{k,t}^{\!\top} \hat{\mathbf{z}}_{j,t}, \\
+r_{k,t}^{(L)} &= \min\!\left(1,\, \max\!\left(0,\, \frac{m_{k,t} - \tau_c}{1 - \tau_c}\right)\right).
+\end{aligned}
+\label{eq:clone_score}
+\end{equation}
+where $\tau_c = 0.95$ is the clone-similarity threshold. Notably, benign clients remain below $\tau_c$ in practice, since heterogeneous local datasets cause their normalized updates to disperse, whereas any group of clients submitting near-identical vectors approaches a similarity of unity and thus saturates $r_{k,t}^{(L)}$ to one.
+
+\subsubsection{Statistical Score Fusion and Smoothing}
+The five complementary signals are linearly combined into a single statistical anomaly score, which is given by
+\begin{equation}
+r_{k,t} = \beta_N r_{k,t}^{(N)} + \beta_C r_{k,t}^{(C)} + \beta_D r_{k,t}^{(D)} + \beta_S r_{k,t}^{(S)} + \beta_L r_{k,t}^{(L)},
+\label{eq:stat_score}
+\end{equation}
+with non-negative weights summing to one. Since each constituent score isolates a distinct mathematical feature of an update---magnitude, direction, displacement, sign structure, and inter-client redundancy---a misbehaving client that distorts any one of these features is reflected in the fused score, regardless of the underlying mechanism by which the distortion was generated. We use the fixed weights $(\beta_N, \beta_C, \beta_D, \beta_S, \beta_L) = (0.30, 0.20, 0.25, 0.15, 0.10)$, which place the greatest mass on the two axes that respond to the largest number of attack families (norm inflation and MAD-normalized displacement) and the least on the clone score, which is informative only against coordinated submissions. These weights are set a priori rather than tuned per dataset or per attack; no attack-specific calibration is performed anywhere in the framework. To dampen transient fluctuations caused by non-IID drift, the statistical score is then EWMA-smoothed across rounds, namely,
+\begin{equation}
+\bar r_{k,t} = \lambda_r\,\bar r_{k,t-1} + (1-\lambda_r)\,r_{k,t},
+\label{eq:stat_ewma}
+\end{equation}
+with decay $\lambda_r = 0.4$. This arm is smoothed more lightly than the temporal arm of Section~\ref{sec:convlstm_ewma}, whose decay is $\lambda = 0.6$: the statistical score is available for every client at every round and is therefore allowed to react quickly, whereas the ConvLSTM score is refreshed only intermittently and benefits from greater inertia. Hence, $\bar r_{k,t}$ provides a low-cost, history-light statistical estimate of how anomalous client~$k$ has been in the recent past.
+
+\subsection{ConvLSTM-EWMA Temporal Scoring: An Explored Extension}
+\label{sec:convlstm_ewma}
+
+The statistical detector of Section~\ref{sec:stat_detector} is a purely per-round test. It is natural to ask whether modelling how a client's update \emph{evolves} across rounds exposes Byzantine behavior that a single round cannot---an adversary doing sustained harm might, one could hope, betray itself as a temporal inconsistency. This subsection develops the detector that tests that hypothesis: a ConvLSTM next-frame forecaster whose prediction error serves as a temporal anomaly score. We present it in full because a central empirical result of this paper (Section~\ref{sec:ablation}) is that, for the untargeted attacks studied here, this temporal arm is \emph{redundant}---it never improves detection over the statistical screen. The reason is structural: inflicting sustained harm requires a persistent bias, which is temporally predictable, so the temporally-surprising part of an update carries little of its harm (we return to this in Section~\ref{sec:ablation}). The extension is nonetheless retained as the second fused arm so that this redundancy can be measured rather than merely asserted.
+
+\subsubsection{ConvLSTM Forecaster}
+To capture the joint spatial structure and temporal evolution of the feature frames produced in Section~\ref{sec:frame}, we employ a single-layer ConvLSTM forecaster~\cite{shi2015convolutional} that processes the spatial feature sequence $\mathbf{S}_{k,t}$ and predicts the next frame in a self-supervised fashion. We use the standard ConvLSTM cell of~\cite{shi2015convolutional} unmodified---input, forget, and output gates in which the dense products of an LSTM are replaced by spatial convolutions, so that hidden and cell states remain $H \times W$ maps---and refer the reader there for the gate equations. After processing the context frames $\mathbf{F}_{k,t-T+1}, \ldots, \mathbf{F}_{k,t-1}$, the final hidden state is passed through a $1 \times 1$ output convolution to produce the predicted frame $\hat{\mathbf{F}}_{k,t} \in \mathbb{R}^{C \times H \times W}$. Accordingly, the raw anomaly score for client $k$ at round $t$ is the mean squared prediction error over all spatial and channel dimensions, which can be expressed as
+\begin{equation}
+s_{k,t} = \frac{1}{C \cdot H \cdot W} \|\hat{\mathbf{F}}_{k,t} - \mathbf{F}_{k,t}\|_F^2.
+\label{eq:anomaly_score}
+\end{equation}
+
+The detector parameters $\theta$ are updated in a semi-online fashion using a replay buffer $\mathcal{B}_{\text{win}}$ of clean temporal windows collected from rounds in which the global model has demonstrated consistent performance improvement. The training objective is the same next-frame squared error as~\eqref{eq:anomaly_score}, averaged over the buffer: each window's first $T-1$ frames are fed to the forecaster and the prediction is compared against the held-out final frame. By restricting parameter updates to rounds with verified performance gains, the framework avoids inadvertently fitting the detector to feature patterns associated with Byzantine activity, an effect that would otherwise emerge under sustained, low-magnitude poisoning such as the LIE attack.
+
+Concretely, a round is deemed \emph{good} when the global model has improved in either accuracy or loss for two consecutive rounds. Windows are then admitted to $\mathcal{B}_{\text{win}}$ only from clients that survived the filter of Section~\ref{sec:dual_threshold} in that round and whose fused score falls below the population median, capped at three windows per client so that no single client dominates the buffer. Updates are performed at most once every two rounds, and only once $|\mathcal{B}_{\text{win}}|$ exceeds a minimum occupancy, using Adam with learning rate $10^{-4}$ for at most $50$ minibatch steps. The detector is randomly initialized and is trained purely online: no pre-training on external data is performed at any point.
+
+\subsubsection{EWMA Smoothing and Adaptive Scoring Policy}
+Evaluating the ConvLSTM for every client at every round incurs $\mathcal{O}(|S_t|)$ forward passes and constitutes a significant overhead for a large client population. To reduce this cost while maintaining responsiveness to emerging threats, we apply EWMA smoothing together with a selective re-evaluation policy that triggers ConvLSTM inference only when necessary. The EWMA score for client $k$ is maintained as
+\begin{equation}
+e_{k,t} =
+\begin{cases}
+\lambda \, e_{k,t-1} + (1 - \lambda) \, s_{k,t} & \text{if $k$ is re-evaluated at $t$,}\\
+\lambda \, e_{k,t-1} & \text{otherwise,}
+\end{cases}
+\label{eq:ewma}
+\end{equation}
+where $\lambda \in (0,1)$ is the decay factor. It is worth noting that the EWMA provides temporal inertia: a single anomalous round raises the score only gradually, while sustained benign behavior causes it to decay, thereby dampening the false alarms induced by transient communication artifacts.
+
+It is worth being explicit about the second branch of~\eqref{eq:ewma}, since it has a consequence that we quantify empirically in Section~\ref{sec:quantile_sweep}. A client that is \emph{not} re-evaluated does not retain its previous score: the score is decayed geometrically toward zero. This is deliberate, in that stale evidence of anomaly should not persist indefinitely, but it also means that the temporal score of a client carries information about \emph{how recently it was examined}, and not only about how anomalous it was.
+
+Accordingly, the re-evaluation policy operates in two phases. During an initial cold-start phase of $T_{\mathrm{cs}}$ rounds, all participating clients are scored, without any budget cap, so as to build a reliable EWMA baseline. After cold-start, re-evaluation of client $k$ is triggered under either of the following conditions:
+\begin{enumerate}
+    \item \textit{Periodic refresh:} client $k$ has not been scored for more than $R_{\max}$ consecutive rounds;
+    \item \textit{High-EWMA trigger:} the current EWMA score $e_{k,t-1}$ exceeds a dynamic threshold $\tau_s$, which is defined as the $q_s$-th empirical quantile of all currently tracked EWMA scores, namely,
+    \begin{equation}
+    \tau_s = \text{Quantile}_{q_s}\!\left(\{e_{k,t-1}\}_{k \in S_t}\right).
+    \label{eq:trigger_threshold}
+    \end{equation}
+\end{enumerate}
+
+In addition, a round-level adaptive scoring cap $B_t$ further bounds the total number of clients evaluated per round. The cap is driven by the normalized inter-quartile range (IQR) of the current EWMA distribution, which serves as a proxy for the overall level of client heterogeneity and threat activity, and is given by
+\begin{equation}
+\nu_t = \frac{\mathrm{IQR}(\{e_{k,t-1}\})}{|\mathrm{median}(\{e_{k,t-1}\})| + \epsilon},
+\label{eq:iqr_ratio}
+\end{equation}
+which, after saturation to the unit interval, is linearly interpolated between a floor $B_{\min}$ and a ceiling $B_{\max}$, namely,
+\begin{equation}
+B_t^{\mathrm{raw}} = B_{\min} + (B_{\max} - B_{\min}) \cdot \min(\nu_t, 1),
+\label{eq:scoring_cap}
+\end{equation}
+and then smoothed across rounds, as $B_t = \alpha_B B_{t-1} + (1-\alpha_B) B_t^{\mathrm{raw}}$ with $\alpha_B = 0.7$, so that the budget does not oscillate with round-to-round noise in the score distribution. When the number of triggered clients exceeds $B_t$, only those with the highest current EWMA scores are re-evaluated, so that the most suspicious clients are prioritized within the allotted computational budget. As a result, the proposed ConvLSTM-EWMA detector inherits the responsiveness of full per-round inference while keeping the per-round complexity bounded by $B_t$ rather than by $|S_t|$.
+
+We stress that $q_s$ is a \emph{computational} control, not a detection threshold: it determines which clients receive a fresh ConvLSTM forward pass, and it never appears in the filtering rule of Section~\ref{sec:dual_threshold}. Its effect on detection is therefore indirect, acting through the staleness of the temporal scores, and Section~\ref{sec:quantile_sweep} measures exactly that effect.
+
+\subsubsection{Two-Sided Relative Score for LIE Polarity Compensation}
+A direct use of the EWMA-smoothed score $e_{k,t}$ defined in~\eqref{eq:ewma} is, however, problematic against the LIE attack: because LIE crafts the same poisoned vector across rounds, the ConvLSTM forecaster rapidly learns to predict it, leading to \emph{lower} rather than higher prediction errors for the malicious clients than for the honest ones. The polarity of the score is therefore inverted under LIE, and any single-sided upper-tail filter built on $e_{k,t}$ would systematically misclassify benign clients as malicious and vice versa. Inspired by this observation, we do not use $e_{k,t}$ directly; instead, we transform it into a two-sided relative score that simultaneously flags clients whose EWMA is anomalously high \emph{or} anomalously low compared to the participant population.
+
+Specifically, let $\tilde{e}_t = \mathrm{median}_{k\in S_t}(e_{k,t})$ and $\mathrm{MAD}_t^{(e)} = \mathrm{median}_{k\in S_t}\bigl(|e_{k,t}-\tilde{e}_t|\bigr)$ denote, respectively, the round-$t$ median and the MAD of the EWMA scores. Scoring the \emph{absolute} deviation from that median, rather than its upper tail, makes the test two-sided by construction:
+\begin{equation}
+\rho_{k,t} = \tanh\!\left(\frac{0.6745\,\bigl|e_{k,t}-\tilde{e}_t\bigr|}{2\bigl(\mathrm{MAD}_t^{(e)}+\epsilon\bigr)}\right) \in [0,1],
+\label{eq:rho_score}
+\end{equation}
+where $0.6745$ is the consistency constant that rescales the MAD to a standard-deviation equivalent for Gaussian data~\cite{nist_modified_zscore}. By construction, $\rho_{k,t} \to 0$ when $e_{k,t}$ is close to the population median and $\rho_{k,t} \to 1$ when $e_{k,t}$ deviates strongly in \emph{either} tail, so the polarity inversion induced by LIE is resolved automatically, without any prior knowledge of the attack family.
+
+\subsubsection{Score Fusion via Max-Pooling}
+To exploit the complementarity of the per-round statistical detector developed in Section~\ref{sec:stat_detector} and the temporal ConvLSTM detector, we fuse the EWMA-smoothed statistical score $\bar r_{k,t}$ in~\eqref{eq:stat_ewma} and the two-sided relative ConvLSTM score $\rho_{k,t}$ in~\eqref{eq:rho_score} via max-pooling, namely,
+\begin{equation}
+\Phi_{k,t} = \max\!\bigl(\bar r_{k,t},\; \rho_{k,t}\bigr).
+\label{eq:fused_score}
+\end{equation}
+Max-pooling preserves the principle that either arm can independently flag a client. In particular, the statistical detector reacts from the very first post-warm-up round, before sufficient temporal context has accumulated, while the relative ConvLSTM score becomes effective once the EWMA distribution stabilizes. Hence, the fused score $\Phi_{k,t}$ is robust across both early and late stages of training and against all three attack families introduced in Section~\ref{sec:formulation}.
+\subsection{Dual-Threshold Robust Aggregation}
+\label{sec:dual_threshold}
+
+\subsubsection{Adaptive Quantile Filtering}
+Once the fused scores $\{\Phi_{k,t}\}_{k\in S_t}$ in~\eqref{eq:fused_score} have been updated, the server determines a per-round quantile threshold $\tau_t^{(q)}$ via an adaptive quantile $q_t \in [q_{\min}, q_{\max}]$, namely,
+\begin{equation}
+\tau_t^{(q)} = \text{Quantile}_{q_t}\!\left(\{\Phi_{k,t}\}_{k \in S_t}\right).
+\label{eq:filt_threshold}
+\end{equation}
+The quantile $q_t$ is, however, not fixed: it is adjusted each round by combining four complementary signals into a scalar strictness index $\phi_t \in [0,1]$, which is given by
+\begin{equation}
+\phi_t = w_{\mathrm{spr}} \phi_t^{\mathrm{spr}} + w_{\mathrm{sev}} \phi_t^{\mathrm{sev}} + w_{\mathrm{srv}} \phi_t^{\mathrm{srv}} + w_{\mathrm{drp}} \phi_t^{\mathrm{drp}},
+\label{eq:strictness}
+\end{equation}
+with the fixed weights $(w_{\mathrm{spr}}, w_{\mathrm{sev}}, w_{\mathrm{srv}}, w_{\mathrm{drp}}) = (0.35, 0.30, 0.20, 0.15)$, summing to one. Each component captures a distinct facet of the current threat landscape, as summarized below:
+\begin{itemize}
+    \item $\phi_t^{\mathrm{spr}}$ (\emph{spread signal}): the relative IQR of the current fused scores, which measures the degree of separation between high- and low-scoring clients. A wide spread indicates active attack behavior and warrants stricter filtering. Writing $u_t$ for that relative IQR, the signal is saturated as $\phi_t^{\mathrm{spr}} = u_t/(u_t+1) \in [0,1)$.
+    \item $\phi_t^{\mathrm{sev}}$ (\emph{severity signal}): the ratio of the score mean to its standard deviation, which captures the overall intensity of anomalous activity across the participant population, saturated by the same $u/(u+1)$ map.
+    \item $\phi_t^{\mathrm{srv}}$ (\emph{server signal}): derived from the consecutive-round improvement streak of the global model. It takes the value $0$ when the model has been improving for at least two consecutive rounds, $1$ when the streak is broken, and $0.5$ otherwise. Sustained improvement indicates that the current filtering level is effective, so that the filter can be relaxed.
+    \item $\phi_t^{\mathrm{drp}}$ (\emph{drop-rate signal}): penalizes over-aggressive filtering. When the fraction of excluded clients in the previous round exceeded a target drop rate $\xi_{\mathrm{drop}}$, this component reduces the strictness so as to restore broader participation.
+\end{itemize}
+
+We are explicit about the one place where USTAD-FL consults server-side information. The server signal $\phi_t^{\mathrm{srv}}$ reads a coarse, \emph{scalar} global-improvement indicator (whether the global model's accuracy or loss has improved for two consecutive rounds), which requires a small server-side monitoring set. This is deliberately weaker than, and different in kind from, the clean \emph{root dataset} that FLTrust~\cite{cao2020fltrust} needs: FLTrust trains a reference model on labeled root data and uses it to score \emph{every client in every round}, whereas $\phi_t^{\mathrm{srv}}$ is a single bit of global feedback, is one of four strictness inputs (weight $0.20$), and never scores an individual client. The five per-round statistical signals of Section~\ref{sec:stat_detector}---which carry the detection (Section~\ref{sec:ablation})---use no server-side data at all; they are computed entirely from the round's own submitted updates. The server signal can therefore be disabled ($w_{\mathrm{srv}}=0$), at the cost of a less adaptive threshold, or replaced by an unlabeled convergence proxy; quantifying the resulting sensitivity is left to future work.
+
+The quantile is then mapped from the strictness index as
+\begin{equation}
+q_t^{\mathrm{raw}} = q_{\max} - \phi_t\,(q_{\max} - q_{\min}),
+\label{eq:q_raw}
+\end{equation}
+and smoothed across rounds so as to prevent oscillation, namely,
+\begin{equation}
+q_t = \alpha_q\, q_{t-1} + (1-\alpha_q)\, q_t^{\mathrm{raw}},
+\label{eq:q_smooth}
+\end{equation}
+where $\alpha_q \in (0,1)$ is a smoothing coefficient. Hence, the mapping in~\eqref{eq:q_raw} ensures that higher threat evidence (larger $\phi_t$) yields stricter filtering (smaller $q_t$, retaining fewer clients), while a benign or improving environment allows the filter to relax toward $q_{\max}$.
+
+\subsubsection{Absolute-Threshold Backstop}
+The adaptive quantile $q_t$ is, by construction, a \emph{relative} criterion: it always retains at least a fraction $q_t$ of the participants, irrespective of the absolute level of the fused score. Consequently, when the gap between the malicious and benign clusters is large for instance, under a large-magnitude Gaussian attack the quantile filter alone may admit a clearly malicious client whose fused score sits well above any reasonable benign level. To close this gap, we introduce a fixed absolute threshold $\tau_{\mathrm{abs}} = 0.40$ and define the effective per-round threshold as the smaller of the two, namely,
+\begin{equation}
+\tau_t^{\mathrm{filt}} = \min\!\Bigl(\tau_t^{(q)},\; \tau_{\mathrm{abs}}\Bigr).
+\label{eq:dual_thresh}
+\end{equation}
+The trusted subset is then identified as
+\begin{equation}
+\widetilde{S}_t = \bigl\{k \in S_t : \Phi_{k,t} \le \tau_t^{\mathrm{filt}}\bigr\}.
+\label{eq:filtered_set}
+\end{equation}
+A minimum participation guard $|\widetilde{S}_t| \ge S_{\min}$ is enforced in line with constraint (P1b): when the dual-threshold filter would leave fewer than $S_{\min}$ participants, the $S_{\min}$ clients with the lowest $\Phi_{k,t}$ are reinstated. Notably, the setting $\tau_{\mathrm{abs}}=1$ recovers the quantile-only filter as a special case, so that the absolute threshold acts as a backstop rather than as a primary filter.
+
+\subsubsection{Filtered Aggregation}
+The trusted subset $\widetilde{S}_t$ is finally passed to the server-side aggregation rule, namely,
+\begin{equation}
+\mathbf{w}^{t+1} = \text{AGG}\!\left(\{(\hat{\mathbf{g}}_{k,t}, n_k)\}_{k \in \widetilde{S}_t}\right).
+\label{eq:filtered_agg}
+\end{equation}
+Since $\widetilde{S}_t \subseteq S_t$, the filtered aggregation in~\eqref{eq:filtered_agg} is a strict refinement of the corrupted-aggregation formulation in~\eqref{eq:poisoned_agg}: it is applicable to any choice of $\text{AGG}(\cdot)$, and the proposed anomaly-based pre-filtering is complementary to, and independently stackable with, any intrinsic robustness properties of the underlying aggregation rule. Throughout this work we deliberately instantiate $\text{AGG}(\cdot)$ as the plain data-weighted mean of FedAvg, with client~$k$ weighted by its local sample count $n_k$. No robust aggregator, trust score, or anomaly-proportional re-weighting is applied to the survivors: a client is either admitted to $\widetilde{S}_t$ in full or excluded from it entirely. All of the Byzantine robustness reported in Section~\ref{sec:experiments} is therefore attributable to the filter itself, and not to the aggregation rule. Krum~\cite{blanchard2017machine} or the trimmed mean~\cite{yin2018byzantine} may be substituted for FedAvg without altering any other module, which would only add to the robustness established here.
+
+\subsection{Algorithm Summary and Complexity Analysis}
+\label{sec:complexity}
+
+\begin{algorithm}[t]
+\caption{USTAD-FL: Unsupervised Statistical Anomaly Detection at the server}
+\label{alg:ustad}
+\begin{algorithmic}[1]
+\REQUIRE Initial model $\mathbf{w}^{0}$; warm-up length $T_w$; total rounds $T$; quantile range $[q_{\min},q_{\max}]$; absolute threshold $\tau_{\mathrm{abs}}$; minimum participation $S_{\min}$
+\STATE Initialize SVD basis $\mathbf{B}$ and mean $\boldsymbol{\mu}$ from warm-up updates (Section~\ref{sec:svd_projection})
+\STATE Initialize ConvLSTM detector $f_\theta$, EWMA states $\{e_{k},\bar r_{k}\}$, and quantile $q_{0}\!=\!q_{\max}$
+\FOR{$t = 1$ \TO $T_{\text{total}}$}
+    \STATE Broadcast $\mathbf{w}^{t}$ to participants $S_t \subseteq \mathcal{K}$
+    \STATE Receive updates $\{\hat{\mathbf{g}}_{k,t}\}_{k\in S_t}$
+    \STATE \textit{// Latent projection and feature construction}
+    \STATE Compute latent codes $\mathbf{z}_{k,t}$ via~\eqref{eq:projection}; assemble feature frames $\mathbf{F}_{k,t}$ via~\eqref{eq:frame}
+    \STATE \textit{// Statistical detector}
+    \STATE Compute statistical scores $r_{k,t}$ via~\eqref{eq:norm_score}--\eqref{eq:stat_score}; update $\bar r_{k,t}$ via~\eqref{eq:stat_ewma}
+    \STATE \textit{// ConvLSTM detector with adaptive scoring policy}
+    \STATE Determine scoring set $\mathcal{R}_t \subseteq S_t$ via the trigger conditions and budget cap~\eqref{eq:trigger_threshold}--\eqref{eq:scoring_cap}
+    \FOR{each $k \in \mathcal{R}_t$}
+        \STATE Compute $s_{k,t}$ via~\eqref{eq:anomaly_score} and update $e_{k,t}$ via~\eqref{eq:ewma}
+    \ENDFOR
+    \STATE Compute relative score $\rho_{k,t}$ via~\eqref{eq:rho_score}
+    \STATE \textit{// Fusion and dual-threshold filtering}
+    \STATE Fuse scores $\Phi_{k,t} \!=\! \max(\bar r_{k,t}, \rho_{k,t})$ via~\eqref{eq:fused_score}
+    \STATE Update strictness index $\phi_t$~\eqref{eq:strictness} and quantile $q_t$~\eqref{eq:q_raw}--\eqref{eq:q_smooth}
+    \STATE Compute $\tau_t^{\mathrm{filt}} = \min(\tau_t^{(q)}, \tau_{\mathrm{abs}})$~\eqref{eq:dual_thresh}; build $\widetilde{S}_t$~\eqref{eq:filtered_set}
+    \IF{$|\widetilde{S}_t| < S_{\min}$}
+        \STATE Reinstate the $S_{\min}$ clients with the lowest $\Phi_{k,t}$
+    \ENDIF
+    \STATE \textit{// Filtered aggregation}
+    \STATE Update $\mathbf{w}^{t+1} \!\leftarrow\! \text{AGG}(\{(\hat{\mathbf{g}}_{k,t},n_k)\}_{k\in\widetilde{S}_t})$~\eqref{eq:filtered_agg}
+    \STATE \textit{// Semi-online detector update on verified-gain rounds}
+    \IF{the global accuracy improves by at least $\Delta_{\mathrm{acc}}$}
+        \STATE Append the trusted windows to $\mathcal{B}_{\mathrm{win}}$ and update $\theta$ by minimizing the next-frame prediction error
+    \ENDIF
+\ENDFOR
+\RETURN Final global model $\mathbf{w}^{T}$
+\end{algorithmic}
+\end{algorithm}
+
+The complete USTAD-FL procedure is summarized in Algorithm~\ref{alg:ustad}. Specifically, at each round, the server executes (i) the SVD latent projection in~\eqref{eq:projection}, (ii) the spatio-temporal feature construction in~\eqref{eq:frame}, (iii) the per-round statistical detector in~\eqref{eq:norm_score}--\eqref{eq:stat_ewma}, (iv) the ConvLSTM-EWMA forecaster in~\eqref{eq:anomaly_score}--\eqref{eq:rho_score}, (v) the score fusion in~\eqref{eq:fused_score}, and (vi) the dual-threshold filtered aggregation in~\eqref{eq:dual_thresh}--\eqref{eq:filtered_agg}. It is worth noting that the semi-online ConvLSTM update is performed only when the global model has demonstrated a verified accuracy gain, so that the detector is never trained on rounds suspected of poisoning.
+
+As the proposed framework is executed at the server only, we evaluate its per-round computational complexity from the server perspective. The SVD projection requires $\mathcal{O}(|S_t|\,K\,D)$ multiplications, where $D$ is the layer-filtered parameter count and $K$ is the latent dimension. The five-signal statistical detector is dominated by the clone-similarity computation in~\eqref{eq:clone_score}, which is $\mathcal{O}(|S_t|^2 K)$ in the worst case but reduces to $\mathcal{O}(|S_t|^2)$ on the unit-normalized representation used in practice. The ConvLSTM forward pass costs $\mathcal{O}\bigl(B_t\,T\,(C + \eta)\,\eta\, H W k_h k_w\bigr)$, where $\eta$ is the hidden-channel width, $B_t$ is the per-round scoring budget of~\eqref{eq:scoring_cap}, and $k_h\!=\!k_w\!=\!3$. Because the gate convolution maps $C + \eta$ input channels to $4\eta$ outputs, and $\eta = 16$ exceeds $C = 5$ in our configuration, it is the hidden width rather than the channel count that dominates this term.
+
+Two observations follow. First, the ConvLSTM cost is bounded by $B_t$ rather than by $|S_t|$, which is precisely what the re-evaluation policy of Section~\ref{sec:convlstm_ewma} exploits. Second, the overall per-round cost is nevertheless \emph{quadratic}, not linear, in the participant count, because of the pairwise clone score; the linear-in-$|S_t|$ terms are the projection and the four remaining statistical signals. For the federation sizes considered here the quadratic term is negligible, but it is the component that would govern the scaling behavior at substantially larger $|S_t|$, and it can be removed if required by computing the clone score on a random subsample of peers rather than on the full population.
+
+\subsection{Security Analysis and Limitations}
+We now examine USTAD-FL against an adversary aware of the detector itself and make explicit the assumptions on which its robustness rests.
+
+\noindent\textit{Resistance to detector-aware adversaries.} The omniscient adversary defined in Section~\ref{sec:formulation} may attempt to evade the detector rather than only the aggregator. USTAD-FL resists such adaptation by design. First, the ConvLSTM forecaster is updated semi-online and only on rounds in which the global model exhibits a verified accuracy gain (Algorithm~\ref{alg:ustad}); the detector is therefore never trained on rounds suspected of poisoning, so an adversary cannot gradually teach it to accept malicious patterns as normal. Second, the statistical and temporal arms are fused by max-pooling, so an update must appear benign under \emph{every} spatial statistic \emph{and} remain consistent over time to escape detection; no single-statistic manipulation suffices. Third, the two-sided relative score in~\eqref{eq:rho_score} flags temporal behavior that is anomalously regular as well as anomalously irregular, neutralizing the score-polarity inversion that the LIE attack would otherwise exploit, while the clone score in~\eqref{eq:clone_score} penalizes the near-identical updates that aggregator-agnostic attacks such as Min-Max produce as a structural side effect.
+
+\noindent\textit{Assumptions and limitations.} In common with the model-poisoning literature against which it is evaluated~\cite{baruch2019little, shejwalkar2021manipulating}, USTAD-FL assumes a short clean warm-up of $T_w$ rounds during which the SVD basis is fitted; an adversary that poisons from the very first round could bias this basis. The exposure is limited, however: $T_w$ is small (Section~\ref{sec:experiments}) and, unlike history-based detectors that require a long benign trajectory, the statistical arm becomes effective from the first post-warm-up round. USTAD-FL further assumes that malicious clients remain a minority ($M < N/2$), as required by the coordinate-wise median reference. Relaxing the clean-warm-up assumption through robust basis estimation, defending against a malicious majority, and extending the spatio-temporal detector to targeted backdoor attacks are promising directions for future work.
+
+%=============================================================================
+\section{Experiments and Results}
+\label{sec:experiments}
+%=============================================================================
+
+\subsection{Experimental Setup}
+
+We deploy our solution on a standard federated learning system built upon the Flower framework~\cite{beutel2020flower}. We evaluate on two popular benchmarks for federated learning: MNIST~\cite{lecun1998mnist} and Fashion-MNIST~\cite{xiao2017fashion}. We set the total number of clients to $N = 100$, of which $40$ are compromised by the adversary. All clients participate in every round. Data are distributed across all clients using a Dirichlet distribution with $\alpha = 0.5$ to simulate a high degree of non-IID heterogeneity. At each client, we train a Convolutional Neural Network (CNN) consistent with architectures used in FLDetector~\cite{zhang2022fldetector} and FLTrust~\cite{cao2020fltrust}. For honest clients, trained models are sent directly to the server; for malicious clients, each client executes the attack procedures of Section~\ref{sec:formulation}, following~\cite{baruch2019little, shejwalkar2021manipulating}. The adversary remains dormant during the $T_w = 5$ warm-up rounds and begins attacking at round~$6$, so that the detector must lock onto an attack that is already in progress rather than one it has observed from the outset.
+
+Our evaluation comprises two experimental campaigns, which differ in training horizon and in the treatment of the re-evaluation quantile~$q_s$; both are reported in Table~\ref{tab:hyperparams}, where two values in a single row correspond to the defense comparison and to the detection and efficiency study, respectively.
+\begin{itemize}
+    \item \emph{Defense comparison} (Section~\ref{sec:defense_comparison}): $30$ communication rounds, $5$ local epochs, and a fixed re-evaluation quantile $q_s = 0.8$, on both datasets and all three attacks. USTAD-FL is compared against FLDetector~\cite{zhang2022fldetector}, FLTrust~\cite{cao2020fltrust}, and Multi-Krum~\cite{blanchard2017machine}.
+    \item \emph{Detection and efficiency study} (Sections~\ref{sec:detection_quality} and~\ref{sec:quantile_sweep}): $50$ communication rounds, $10$ local epochs, and $q_s$ swept over $\{0.0, 0.1, \ldots, 1.0\}$ on both datasets and all three attacks, yielding $66$ configurations in total.
+\end{itemize}
+
+Because the two campaigns differ in both horizon and number of local epochs, their absolute accuracies are not directly comparable. Throughout, ``final accuracy'' denotes the global test accuracy at the \emph{last round of the relevant campaign}---round~$30$ for the defense comparison and round~$50$ for the detection and efficiency study---and the two campaigns are never mixed within a single figure or table. This is why, for instance, the final MNIST accuracies in the $50$-round sweep (Section~\ref{sec:quantile_sweep}) sit a few points above those in the $30$-round comparison table (Section~\ref{sec:defense_comparison}); the two numbers describe different training budgets, not a discrepancy.
+
+One scoping remark is in order, as it bounds the claims we make: every configuration reported here corresponds to a single training run. We do not report error bars, and the run-to-run variability of individual points is consequently not characterized. Where a quantity is visibly erratic across~$q_s$, we say so explicitly rather than fitting a trend to it.
+
+\begin{table}[t]
+\centering
+\caption{Hyperparameter configuration.}
+\label{tab:hyperparams}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Value} \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Federation}} \\
+Total clients & $N$ & 100 \\
+Malicious clients & $M$ & 40 \\
+Dirichlet concentration & $\alpha$ & 0.5 \\
+Client participation rate & $\kappa$ & 1.0 (all clients) \\
+Local learning rate & $\eta$ & 0.01 \\
+Warm-up rounds & $T_w$ & 5 \\
+Attack onset round & --- & 6 \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Training campaign}} \\
+Communication rounds & $T_{\text{total}}$ & 30 / 50 \\
+Local epochs per round & $E$ & 5 / 10 \\
+Re-evaluation quantile & $q_s$ & 0.8 / swept $[0,1]$ \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Detector}} \\
+Cold-start rounds & $T_{\text{cs}}$ & 8 \\
+Temporal window length & $T$ & 5 \\
+Spatial grid & $H \times W$ & $16 \times 16$ \\
+Latent dimension & $K = \min(HW, n_b)$ & 100 \\
+Feature channels & $C$ & 5 \\
+SVD bootstrap minimum & $n_{\min}$ & 64 \\
+Statistical EWMA decay & $\lambda_r$ & 0.4 \\
+Statistical fusion weights & $\beta_{N,C,D,S,L}$ & $(.30,.20,.25,.15,.10)$ \\
+Clone-similarity threshold & $\tau_c$ & 0.95 \\
+ConvLSTM EWMA decay & $\lambda$ & 0.6 \\
+Max re-eval interval & $R_{\max}$ & 10 \\
+Scoring cap range & $[B_{\min}, B_{\max}]$ & $[10, 80]$ \\
+Scoring cap smoothing & $\alpha_B$ & 0.7 \\
+Strictness weights & $w_{\mathrm{spr},\mathrm{sev},\mathrm{srv},\mathrm{drp}}$ & $(.35,.30,.20,.15)$ \\
+Filtering quantile range & $[q_{\min}, q_{\max}]$ & $[0.35, 0.90]$ \\
+Default filtering quantile & --- & 0.55 \\
+Quantile smoothing & $\alpha_q$ & 0.7 \\
+Absolute threshold & $\tau_{\text{abs}}$ & 0.40 \\
+Minimum participation & $S_{\min}$ & 2 \\
+Target drop rate & $\xi_{\text{drop}}$ & 0.20 \\
+ConvLSTM hidden channels & --- & 16 \\
+ConvLSTM kernel size & --- & $3 \times 3$ \\
+Detector learning rate & --- & $10^{-4}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.85\textwidth, height=0.85\textheight, keepaspectratio]{pipeline.png}
+\caption{Overview of the proposed USTAD-FL pipeline.}
+\label{fig:pipeline}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\subfloat[MNIST]{\includegraphics[width=0.42\textwidth]{accuracy_plot_mnist.png}\label{fig:acc_mnist}}\hfill
+\subfloat[Fashion-MNIST]{\includegraphics[width=0.42\textwidth]{accuracy_plot_famnist.png}\label{fig:acc_famnist}}
+\caption{Global model testing accuracy using FedAvg with attacker and no attacker.}
+\label{fig:accuracy_plots}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\subfloat[Gaussian attack]{\includegraphics[width=0.32\textwidth]{accuracy_plot_defense_gaussian_mnist.png}\label{fig:def_mnist_gaussian}}\hfill
+\subfloat[LIE attack]{\includegraphics[width=0.32\textwidth]{accuracy_plot_defense_lie_mnist.png}\label{fig:def_mnist_lie}}\hfill
+\subfloat[Min-Max attack]{\includegraphics[width=0.32\textwidth]{accuracy_plot_defense_min_max_mnist.png}\label{fig:def_mnist_minmax}}
+\caption{Defense performance on the MNIST dataset under different Byzantine attack types.}
+\label{fig:defense_mnist}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\subfloat[Gaussian attack]{\includegraphics[width=0.32\textwidth]{accuracy_plot_defense_gaussian_famnist.png}\label{fig:def_famnist_gaussian}}\hfill
+\subfloat[LIE attack]{\includegraphics[width=0.32\textwidth]{accuracy_plot_defense_lie_famnist.png}\label{fig:def_famnist_lie}}\hfill
+\subfloat[Min-Max attack]{\includegraphics[width=0.32\textwidth]{accuracy_plot_defense_min_max_famnist.png}\label{fig:def_famnist_minmax}}
+\caption{Defense performance on the Fashion-MNIST dataset under different Byzantine attack types.}
+\label{fig:defense_famnist}
+\end{figure*}
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{detection_tau06.png}
+    \caption{Per-round detection rate and false-detection rate at $q_s = 0.6$.}
+    \label{fig:detection_tau06}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{sweep_accuracy_forwards_all_datasets_attacks.png}
+    \caption{Final test accuracy and total ConvLSTM forward passes versus the re-evaluation quantile~$q_s$.}
+    \label{fig:computation_reduction}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\subfloat[MNIST]{\includegraphics[width=0.42\textwidth]{sweep_asr_fdr_forwards_mnist.png}\label{fig:asr_fdr_mnist}}\hfill
+\subfloat[Fashion-MNIST]{\includegraphics[width=0.42\textwidth]{sweep_asr_fdr_forwards_fashion_mnist.png}\label{fig:asr_fdr_famnist}}
+\caption{Evasion rate, false-detection rate, and ConvLSTM forward passes versus~$q_s$.}
+\label{fig:asr_fdr_sweep}
+\end{figure*}
+
+\begin{table*}[!t]
+\centering
+\caption{Final global test accuracy under $40\%$ Byzantine clients.}
+\label{tab:main_results}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}lcccccc@{}cc@{}}
+\toprule
+& \multicolumn{3}{c}{\textbf{MNIST}} & \multicolumn{3}{c}{\textbf{Fashion-MNIST}} & & \multicolumn{1}{c}{\textbf{Worst}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(l){9-9}
+\textbf{Method} & Gauss. & LIE & Min-Max & Gauss. & LIE & Min-Max & & case \\
+\midrule
+FedAvg (no defense) & 0.089 & 0.114 & 0.098 & 0.100 & 0.100 & 0.200 & & 0.089 \\
+FLDetector & 0.103 & 0.103 & 0.103 & 0.100 & 0.100 & 0.704 & & 0.100 \\
+FLTrust & 0.650 & 0.693 & 0.764 & 0.587 & 0.651 & 0.666 & & 0.587 \\
+Multi-Krum$^\dagger$ & 0.885 & \textbf{0.888} & 0.577 & 0.726 & 0.729 & 0.733 & & 0.577 \\
+USTAD-FL (ours) & \textbf{0.888} & 0.881 & \textbf{0.870} & \textbf{0.744} & \textbf{0.736} & \textbf{0.741} & & \textbf{0.736} \\
+\midrule
+FedAvg (no attack) & \multicolumn{3}{c}{0.859} & \multicolumn{3}{c}{0.743} & & --- \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize \raggedright Round~$30$, $5$ local epochs, non-IID with Dirichlet $\alpha=0.5$. Best defense per column in bold. The \emph{worst case} column is the row-wise minimum over the six configurations. $^\dagger$Multi-Krum is granted the exact number of malicious clients; the FedAvg (no attack) row is a clean-training reference.\par}
+\end{table*}
+
+\subsection{Impact of Byzantine Attacks on Vanilla FedAvg}
+
+Fig.~\ref{fig:accuracy_plots} shows the impact of Byzantine attacks on a vanilla FedAvg aggregator operating without any defense mechanism. Under all three attack variants (Gaussian, LIE, and Min-Max), the model undergoes catastrophic performance collapse immediately after the warm-up phase (round~5), with accuracy dropping to near-random levels ($\approx 0.10$) within a few rounds and remaining degraded for the entirety of the training horizon. The consistency of this collapse across all attack types and datasets confirms a fundamental vulnerability of FedAvg: without an anomaly-aware pre-filtering stage, a small fraction of Byzantine participants is sufficient to completely subvert global model convergence under non-IID data distributions.
+
+
+\subsection{Defense Performance Comparison}
+\label{sec:defense_comparison}
+
+Figs.~\ref{fig:defense_mnist} and~\ref{fig:defense_famnist} show the defense performance under the Gaussian, LIE, and Min-Max attacks on MNIST and Fashion-MNIST, respectively. It is important to note that Multi-Krum operates under a privileged threat model in which the server is assumed to have prior knowledge of the exact number of malicious participants, an assumption that is rarely satisfied in real-world deployments; the remaining baselines, including the proposed method, operate without prior knowledge. Table~\ref{tab:main_results} complements the round-wise curves with the final-round (round~$30$) global accuracy of every method.
+
+This comparison was run at $q_s = 0.8$ rather than at the $q_s = 0.6$ operating point recommended in Section~\ref{sec:quantile_sweep}. The choice is immaterial to the conclusions drawn here: the sweep of Section~\ref{sec:quantile_sweep} establishes that final accuracy is essentially insensitive to~$q_s$ across the entire range (the largest spread observed in any of the six dataset--attack configurations is $4.6$ accuracy points), so the ranking of the defenses does not depend on the trigger setting. The two settings do differ in false-positive behavior, which we quantify in Section~\ref{sec:quantile_sweep}.
+
+Across all experimental scenarios, the proposed framework achieves consistent, monotonically increasing accuracy from the first communication round onward. As Table~\ref{tab:main_results} shows, USTAD-FL attains the highest final accuracy among all defenses in five of the six tabulated configurations, trails the privileged Multi-Krum by less than one percentage point on the sixth (MNIST under LIE), and matches the attack-free FedAvg reference to within one percentage point in every case, exceeding it on MNIST. Its worst result over the six, $0.736$, exceeds the best baseline's worst result ($0.587$, FLTrust) by $14.9$ accuracy points, and no baseline sustains that floor: each falls below it in at least one configuration, and two fall to near-random accuracy. This stable learning trajectory is a direct consequence of the statistical anomaly scoring mechanism, which accurately identifies and suppresses Byzantine contributions at each round without disrupting the aggregation of legitimate client updates.
+
+
+FLDetector exhibits a characteristic failure mode consistent across all tested scenarios: its accuracy increases during the warm-up phase but collapses irreversibly immediately thereafter, converging to near-random performance for the remainder of training. Because FLDetector requires a prolonged warm-up period, it cannot detect attacks that begin early.
+
+FLTrust suffers from pronounced training instability, exhibiting large round-to-round oscillations that persist throughout the full training horizon. We attribute this to the sensitivity of its trust-score weighting mechanism to the heterogeneous gradient distributions arising from non-IID data partitioning.
+
+Multi-Krum, despite benefiting from privileged knowledge of the attacker count, exhibits markedly uneven performance across datasets. The substantial performance gap reveals that geometric outlier-rejection is poorly suited to non-IID settings, where the natural divergence among benign client updates cannot be distinguished from adversarial perturbations without temporal context. In lower-complexity scenarios (e.g., MNIST), Multi-Krum occasionally reaches accuracy comparable to our method; however, the proposed framework achieves equivalent results without any prior knowledge of the adversary and with consistently faster convergence in the early rounds.
+
+
+
+\subsection{Detection Quality at the Operating Point}
+\label{sec:detection_quality}
+
+Accuracy is an indirect and, in this setting, rather insensitive proxy for detection: with $100$ clients the global model still converges even when a substantial number of benign updates are discarded, provided the attackers are excluded. We therefore measure the detector directly. Let $\mathrm{TP}$, $\mathrm{FP}$, $\mathrm{FN}$, and $\mathrm{TN}$ denote the per-round counts of correctly flagged malicious clients, wrongly flagged benign clients, missed malicious clients, and correctly retained benign clients. Fig.~\ref{fig:detection_tau06} reports two quantities per round at the recommended operating point $q_s = 0.6$: the \emph{detection rate} (recall) $\mathrm{TP}/(\mathrm{TP}+\mathrm{FN})$, and the \emph{false-detection rate} $\mathrm{FP}/N$ as plotted. We state the normalization explicitly because the latter is neither the statistical false-discovery rate $\mathrm{FP}/(\mathrm{FP}+\mathrm{TP})$ nor the false-positive rate $\mathrm{FP}/(\mathrm{FP}+\mathrm{TN})$; where a claim depends on the benign population, we quote the benign rejection rate $\mathrm{FP}/(\mathrm{FP}+\mathrm{TN})$ instead.
+
+From round~$7$ onward the detection rate is exactly $1.000$ in five of the six configurations: every attacker is caught in every round. The sixth, Fashion-MNIST under Min-Max, attains $0.999$, missing a single malicious client in round~$13$. At the attack onset (round~$6$) the picture is different: the Gaussian attack is detected immediately at a rate of $1.000$ on both datasets, whereas LIE and Min-Max are only partially caught, at rates between $0.350$ and $0.525$. This is a one-round \emph{lock-on latency} rather than a defeat. Both detector arms are smoothed by an exponentially weighted moving average of each client's recent scores, so at the first attacked round each client's smoothed score still carries its benign warm-up history and its \emph{absolute} value is damped. The underlying ranking already separates the attackers at round~$6$---the statistical arm's ROC-AUC is $1.000$ over all attacked rounds, round~$6$ included (Section~\ref{sec:ablation})---but the fixed dual threshold has not yet dropped below the damped attacker scores, so some attackers survive the cut; the transient is resolved the following round, once one attacked round has entered the average. During the shaded warm-up rounds $1$--$5$ of Fig.~\ref{fig:detection_tau06} no malicious client is present, so recall is undefined and is not drawn; the false-detection rate there, computed over all $N = 100$ participants, is approximately $0.46$, reflecting a cold start in which the detector has no adversarial contrast against which to calibrate.
+
+Once the detector has locked on, the false-detection rate settles low: averaged over the final ten rounds it lies between $0.010$ and $0.037$ in five of the six configurations. One configuration does not follow this pattern, and we report it explicitly rather than averaging it away: MNIST under Min-Max settles at $0.146$. In that case the flagged benign clients are re-admitted in later rounds rather than being permanently excluded, which is why its accuracy remains in line with the others. These are properties of the \emph{fused} detector; the next subsection isolates the two arms and shows that the statistical arm alone accounts for essentially all of this detection quality.
+
+\subsection{Ablation: Does the Temporal Arm Earn Its Place?}
+\label{sec:ablation}
+
+The fused detector combines a per-round statistical arm with a temporal ConvLSTM arm, and a question essential to the paper's claims is which arm does the work. We answer it with a \emph{decision-layer ablation} that requires no additional training. For every one of the $66$ sweep configurations, our logs record, for each client in each round, both arms' scores together with the ground-truth label; we can therefore re-rank clients by each arm \emph{alone} and compare the result against the fused decision that was actually taken. The ablation is faithful because the statistical scores are computed identically whether or not the ConvLSTM is present, and filtering is a per-round decision over those scores; it is a re-ranking of scores each run already produced, not a from-scratch retraining of a statistical-only system, which we leave as a confirming experiment.
+
+We report two threshold-honest views over the attacked rounds $t \ge 6$. The first is threshold-free: the ROC-AUC of the malicious-versus-benign labels against each arm's score, shown in Table~\ref{tab:ablation_auc}. The statistical arm attains an AUC of exactly $1.000$ in all six dataset--attack configurations---it ranks every malicious client above every benign one---and this value is invariant to the re-evaluation quantile $q_s$, as it must be, since $q_s$ throttles only the temporal arm; this invariance is an independent check on the pipeline. The ConvLSTM arm is both weaker and inconsistent, ranging from $0.643$ (Fashion-MNIST, Min-Max) to $0.944$ (Fashion-MNIST, Gaussian) and approaching random on LIE. Crucially, \emph{fusing} the temporal arm never helps: the fused AUC is below the statistical arm's in all six configurations, by $0.081$ on average, because the $\max$-fusion can only add false alarms on top of an already-perfect statistical ranking.
+
+The second view is a matched-budget operating point: in each round we let each arm alone remove the same number of clients that the fused detector actually removed, and measure the resulting recall and benign rejection. Pooled over all $66$ runs, the statistical arm attains a recall of $0.9998$ against the fused detector's $0.9924$ (and the temporal arm's $0.8476$), while incurring \emph{lower} benign rejection ($0.1817$ versus $0.1867$). The statistical arm's recall is below the fused recall in $0$ of $66$ runs, and fusion improves precision in $0$ of $66$ runs. On the three attacks evaluated here, the temporal arm is therefore strictly dominated: it adds computation and false positives without contributing a single detection.
+
+This does not say temporal modelling is useless in general; it says it is redundant \emph{for attacks whose statistical signature already separates them}, which is the case for all three studied here (identical LIE and Min-Max vectors saturate the clone score, and Gaussian noise inflates the norm). There is a structural reason this is not an accident of these particular attacks. An update that inflicts sustained harm must carry a persistent bias in an adversarial direction, since any zero-mean, time-varying component largely averages out across rounds and does little cumulative damage; but a persistent bias is, by definition, temporally predictable, and a next-frame forecaster keys on what is temporally \emph{surprising}. The harmful part of a malicious update therefore lives in the temporally-predictable subspace, and the temporally-surprising part is largely harmless. A temporal detector could earn its place only against an attack that is statistically invisible yet temporally anomalous while still doing harm---a combination this harm--persistence coupling makes difficult to construct for an untargeted threat, and which the ConvLSTM's SVD-latent frame is in any case ill-suited to catch.
+
+\begin{table}[t]
+\centering
+\caption{Decision-layer ablation of the two detector arms.}
+\label{tab:ablation_auc}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}llccc@{}}
+\toprule
+\textbf{Dataset} & \textbf{Attack} & \textbf{Statistical} & \textbf{ConvLSTM} & \textbf{Fused} \\
+\midrule
+\multirow{3}{*}{MNIST} & Gaussian & \textbf{1.000} & 0.922 & 0.994 \\
+ & LIE & \textbf{1.000} & 0.726 & 0.936 \\
+ & Min-Max & \textbf{1.000} & 0.663 & 0.834 \\
+\midrule
+\multirow{3}{*}{F-MNIST} & Gaussian & \textbf{1.000} & 0.944 & 0.996 \\
+ & LIE & \textbf{1.000} & 0.754 & 0.921 \\
+ & Min-Max & \textbf{1.000} & 0.643 & 0.832 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Throttling the Temporal Arm: A Second View of Its Redundancy}
+\label{sec:quantile_sweep}
+
+The ablation of Section~\ref{sec:ablation} isolated the two arms and found the temporal arm redundant. We now corroborate that finding end-to-end, from a different angle: the re-evaluation trigger quantile~$q_s$ controls \emph{how often} the ConvLSTM is actually run, so sweeping it lets us starve the temporal arm of forward passes and observe the effect on the full system. If the arm truly carries no detection, driving it toward silence should leave recall untouched---which is exactly what we find.
+
+Fig.~\ref{fig:computation_reduction} reports the sensitivity of USTAD-FL to~$q_s$ across both benchmarks and all three attack strategies. The solid curves, read against the left axis, give the final-round (round~$50$) global accuracy; the dotted curves, read against the right axis, give the total number of ConvLSTM forward passes accumulated over training, which is a direct proxy for the cost of the temporal detector arm. Because the forward-pass count is governed by the scoring policy rather than by the data, the dotted curves for all six configurations nearly coincide and fall monotonically with~$q_s$, from approximately $3{,}520$ passes at $q_s = 0$ to approximately $2{,}320$ at $q_s = 0.6$ and approximately $820$ at $q_s = 1.0$. Raising the trigger from its most permissive setting to $q_s = 0.6$ eliminates approximately $34\%$ of all ConvLSTM forward passes, and the most aggressive setting eliminates approximately $77\%$---so most of the temporal computation can be removed outright.
+
+These savings cost nothing in accuracy. In \emph{all six} dataset--attack configurations the final accuracy is flat in~$q_s$: within any one configuration it varies by less than five accuracy points across the entire sweep, the largest such variation being $4.6$ points for Fashion-MNIST under LIE. Pooling the three attacks, MNIST remains within $[0.932, 0.960]$ and Fashion-MNIST within $[0.772, 0.825]$, against no-attack references of $0.962$ and $0.817$ at the same $50$-round budget. Nor do the savings cost anything in \emph{recall}.
+
+The savings are not free, however: they are paid for in \emph{precision}. In Fig.~\ref{fig:asr_fdr_sweep}, the solid curves give the evasion rate $\mathrm{FN}/N$, the dashed curves the false-detection rate $\mathrm{FP}/N$, and the dotted curves, read against the right axis, the total ConvLSTM forward passes. The dashed curves show that the false-detection rate grows as the trigger is tightened. Under the Gaussian attack---the only configuration whose curve is clean and consistent across both datasets---the benign rejection rate roughly triples over the sweep, rising from $0.078$ to $0.212$ on MNIST and from $0.080$ to $0.225$ on Fashion-MNIST as $q_s$ moves from $0$ to $1$. Under the LIE and Min-Max attacks the same quantity is erratic, alternating between roughly $0.08$ and $0.55$ at adjacent values of~$q_s$; these are single-run measurements, and we deliberately refrain from reading a trend into them, noting only that their largest values also occur at large~$q_s$.
+
+The mechanism behind this loss of precision is a property of the re-evaluation policy itself, and we state it plainly because it bounds the efficiency claim. When a client is not re-scored in a given round, its ConvLSTM EWMA is \emph{decayed} rather than held, so that clients which are repeatedly skipped drift geometrically toward zero. The two-sided relative score of Section~\ref{sec:method} was introduced precisely to catch LIE, whose clients score anomalously \emph{low}; a benign client that has simply not been re-evaluated for several rounds therefore comes to resemble a LIE attacker. Throttling thus manufactures false positives at exactly the clients it declines to examine. Holding the EWMA constant for unscored clients, or restricting the low branch of the two-sided score to clients that were actually re-evaluated in the current round, would decouple ``not recently scored'' from ``anomalously low''; we leave this correction, and the re-run of the sweep that would validate it, to future work.
+
+Taken together, these results reinforce the ablation. The quantile~$q_s$ is not a robustness dial---recall is invariant to it---but a control on how much of a redundant computation to run; and running \emph{more} of it (small~$q_s$) is only ever a precision liability, never a detection gain. This points to the honest conclusion: since Section~\ref{sec:ablation} shows the temporal arm contributes no detection, the principled choice is to remove it and rely on the statistical screen alone. If, instead, the arm is retained---for instance to keep the fused architecture intact while further attack families are studied---then $q_s = 0.6$ is a reasonable compromise, capturing roughly $34\%$ of the compute reduction while the benign rejection rate on MNIST and Fashion-MNIST stays near its floor in five of the six configurations, at $0.100$--$0.124$; the sixth, MNIST under Min-Max, is elevated at $0.279$. Pushing $q_s$ to $1.0$ is attractive on compute grounds but roughly triples benign rejection through the decay defect above, and the accuracy curves alone would not reveal that cost.
+
+
+
+%=============================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+%=============================================================================
+
+In this paper, we proposed USTAD-FL, an unsupervised anomaly-detection framework for Byzantine-robust federated learning built around a low-cost, aggregator-agnostic statistical screen. The screen scores each client on five complementary robust signals---norm, direction, robust displacement, sign structure, and inter-client redundancy---each referenced to the coordinate-wise median of the round, and a two-sided robust normalization neutralizes the score-polarity inversion that adaptive attacks induce; the resulting per-round score is filtered by a dual adaptive-quantile/absolute threshold before aggregation, requiring no knowledge of the number of malicious clients, no labeled reference model, and no assumption on the attack type. Its five detection signals use no server-side data; the only server-side input anywhere in the method is a coarse, optional global-improvement signal that adapts the filtering strictness (Section~\ref{sec:dual_threshold}). Under three representative untargeted attacks (Gaussian, LIE, and Min-Max) at a 40\% adversarial fraction and high non-IID heterogeneity, USTAD-FL matches or exceeds three state-of-the-art defenses on MNIST and Fashion-MNIST, with a per-round detection rate of at least $0.999$ from the round after the attack begins.
+
+Beyond the detector, the paper contributes a rigorous negative result. Motivated by the intuition that Byzantine participation is temporally inconsistent, we built and evaluated a ConvLSTM next-frame forecaster as a second, temporal detector arm, and then showed---by a decision-layer ablation over the logged scores of $66$ configurations, and by a structural argument---that for untargeted attacks it adds no detection value and is strictly dominated by the statistical screen. The reason is a harm--persistence coupling: inflicting sustained harm requires a persistent bias, which is temporally predictable, so the temporally-surprising part of an update is largely the harmless part. This delineates precisely when temporal modelling can and cannot help, and indicates that the statistical screen alone suffices for this threat model. Several limitations frame the next steps. The comparison covers three untargeted attacks on two benchmarks at a single seed; the immediate priority is to evaluate the statistical screen from scratch against detect-and-filter baselines that share its assumptions (notably SignGuard and DnC), across multiple seeds with significance testing. Further directions include extending the evaluation to more complex benchmarks such as CIFAR-10; relaxing the clean warm-up assumption through robust basis estimation; defending against a malicious majority; and studying targeted backdoor threats, where an update's spatial structure may give temporal modelling the genuine role it lacks here.
+
+
+
+
+%=============================================================================
+% REFERENCES
+%=============================================================================
+\begin{thebibliography}{24}
+
+\bibitem{sandeepa2025federated}
+C.~Sandeepa, E.~Zeydan, T.~Samarasinghe, and M.~Liyanage, ``Federated learning for 6G networks: Navigating privacy benefits and challenges,'' \textit{IEEE Open J. Commun. Soc.}, vol.~6, pp.~90--129, 2025.
+
+\bibitem{mcmahan2017communication}
+B.~McMahan, E.~Moore, D.~Ramage, S.~Hampson, and B.~A.~y.~Arcas, ``Communication-efficient learning of deep networks from decentralized data,'' in \textit{Proc. 20th Int. Conf. Artif. Intell. Statist. (AISTATS)}, vol.~54, Apr.~2017, pp.~1273--1282.
+
+\bibitem{baruch2019little}
+G.~Baruch, M.~Baruch, and Y.~Goldberg, ``A little is enough: Circumventing defenses for distributed learning,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~32, 2019.
+
+\bibitem{fang2020local}
+M.~Fang, X.~Cao, J.~Jia, and N.~Gong, ``Local model poisoning attacks to Byzantine-robust federated learning,'' in \textit{Proc. 29th USENIX Security Symp.}, 2020, pp.~1605--1622.
+
+\bibitem{shejwalkar2021manipulating}
+V.~Shejwalkar and A.~Houmansadr, ``Manipulating the Byzantine: Optimizing model poisoning attacks and defenses for federated learning,'' in \textit{Proc. Network and Distributed System Security Symp. (NDSS)}, 2021.
+
+\bibitem{blanchard2017machine}
+P.~Blanchard, E.~M.~El~Mhamdi, R.~Guerraoui, and J.~Stainer, ``Machine learning with adversaries: Byzantine tolerant gradient descent,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~30, 2017.
+
+\bibitem{yin2018byzantine}
+D.~Yin, Y.~Chen, R.~Kannan, and P.~Bartlett, ``Byzantine-robust distributed learning: Towards optimal statistical rates,'' in \textit{Proc. Int. Conf. Machine Learning (ICML)}, 2018, pp.~5650--5659.
+
+\bibitem{zhang2022fldetector}
+Z.~Zhang, X.~Cao, J.~Jia, and N.~Z.~Gong, ``FLDetector: Defending federated learning against model poisoning attacks via detecting malicious clients,'' in \textit{Proc. 28th ACM SIGKDD Conf. Knowledge Discovery and Data Mining}, 2022, pp.~2545--2555.
+
+\bibitem{cao2020fltrust}
+X.~Cao, M.~Fang, J.~Liu, and N.~Z.~Gong, ``FLTrust: Byzantine-robust federated learning via trust bootstrapping,'' \textit{arXiv preprint arXiv:2012.13995}, 2020.
+
+\bibitem{fung2020foolsgold}
+C.~Fung, C.~J.~M.~Yoon, and I.~Beschastnikh, ``Mitigating sybils in federated learning poisoning,'' \textit{arXiv preprint arXiv:1808.04866}, 2018.
+
+\bibitem{xu2022signguard}
+J.~Xu, S.-L.~Huang, L.~Song, and T.~Lan, ``Byzantine-robust federated learning through collaborative malicious gradient filtering,'' in \textit{Proc. IEEE 42nd Int. Conf. Distributed Computing Systems (ICDCS)}, 2022.
+
+\bibitem{elmhamdi2018bulyan}
+E.~M.~El~Mhamdi, R.~Guerraoui, and S.~Rouault, ``The hidden vulnerability of distributed learning in Byzantium,'' in \textit{Proc. Int. Conf. Machine Learning (ICML)}, 2018.
+
+\bibitem{pillutla2022rfa}
+K.~Pillutla, S.~M.~Kakade, and Z.~Harchaoui, ``Robust aggregation for federated learning,'' \textit{IEEE Trans. Signal Process.}, vol.~70, pp.~1142--1154, 2022.
+
+\bibitem{awan2021contra}
+S.~Awan, B.~Luo, and F.~Li, ``CONTRA: Defending against poisoning attacks in federated learning,'' in \textit{Proc. European Symp. Research in Computer Security (ESORICS)}, 2021.
+
+\bibitem{qian2024flare}
+F.~Qian, B.~Han, Q.~Xiao, and V.~Gopalakrishnan, ``FLARE: Defending federated learning against model poisoning attacks via latent space representations,'' \textit{IEEE Trans. Dependable Secure Comput.}, 2024.
+
+\bibitem{lee2023flguard}
+Y.~Lee, Y.~Cho, W.~Han, H.~Bae, and Y.~Paek, ``FLGuard: Byzantine-robust federated learning via ensemble of contrastive models,'' in \textit{Proc. European Symp. Research in Computer Security (ESORICS)}, 2023.
+
+\bibitem{shi2015convolutional}
+X.~Shi, Z.~Chen, H.~Wang, D.-Y.~Yeung, W.-K.~Wong, and W.-c.~Woo, ``Convolutional LSTM network: A machine learning approach for precipitation nowcasting,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~28, 2015.
+
+\bibitem{hunter1986exponentially}
+J.~S.~Hunter, ``The exponentially weighted moving average,'' \textit{J. Quality Technol.}, vol.~18, no.~4, pp.~203--210, 1986.
+
+\bibitem{li2020federated}
+T.~Li, A.~K.~Sahu, M.~Zaheer, M.~Sanjabi, A.~Talwalkar, and V.~Smith, ``Federated optimization in heterogeneous networks,'' in \textit{Proc. Machine Learning and Systems (MLSys)}, 2020.
+
+\bibitem{karimireddy2021scaffold}
+S.~P.~Karimireddy, S.~Kale, M.~Mohri, S.~J.~Reddi, S.~U.~Stich, and A.~T.~Suresh, ``SCAFFOLD: Stochastic controlled averaging for federated learning,'' in \textit{Proc. Int. Conf. Machine Learning (ICML)}, 2020.
+
+\bibitem{shi2022challenges}
+J.~Shi, W.~Wan, S.~Hu, J.~Lu, and L.~Y.~Zhang, ``Challenges and approaches for mitigating Byzantine attacks in federated learning,'' \textit{arXiv preprint arXiv:2112.14468}, 2022.
+
+\bibitem{liu1989limited}
+D.~C.~Liu and J.~Nocedal, ``On the limited memory BFGS method for large scale optimization,'' \textit{Math. Program.}, vol.~45, no.~1, pp.~503--528, 1989.
+
+\bibitem{hsieh2020non}
+K.~Hsieh, A.~Phanishayee, O.~Mutlu, and P.~B.~Gibbons, ``The non-IID data quagmire of decentralized machine learning,'' in \textit{Proc. 37th Int. Conf. Machine Learning (ICML)}, 2020.
+
+\bibitem{zhang2015singular}
+Z.~Zhang, ``The singular value decomposition, applications and beyond,'' \textit{arXiv preprint arXiv:1510.08532}, 2015.
+
+\bibitem{nist_modified_zscore}
+B.~Iglewicz and D.~C.~Hoaglin, \textit{How to Detect and Handle Outliers} (ASQC Basic References in Quality Control), vol.~16.\hskip 1sp Milwaukee, WI, USA: ASQC Quality Press, 1993.
+
+\bibitem{beutel2020flower}
+D.~J.~Beutel, T.~Topal, A.~Mathur, X.~Qiu, J.~Fernandez-Marques, Y.~Gao, L.~Sani, H.~L.~Kwing, T.~Parcollet, P.~P.~d.~Gusm\~{a}o, and N.~D.~Lane, ``Flower: A friendly federated learning research framework,'' \textit{arXiv preprint arXiv:2007.14390}, 2020.
+
+\bibitem{lecun1998mnist}
+Y.~LeCun, ``The MNIST database of handwritten digits,'' 1998. [Online]. Available: http://yann.lecun.com/exdb/mnist/
+
+\bibitem{xiao2017fashion}
+H.~Xiao, K.~Rasul, and R.~Vollgraf, ``Fashion-MNIST: A novel image dataset for benchmarking machine learning algorithms,'' \textit{arXiv preprint arXiv:1708.07747}, 2017.
+
+\end{thebibliography}
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+

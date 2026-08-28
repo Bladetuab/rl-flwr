@@ -1,0 +1,5 @@
+dataset,attack_mode,tau_s_quantile,final_accuracy,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+cifar10,lie,0.0,0.4808,7397,0.7397,3612.72,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/13-35-17_cifar10_lie_tau0.00,
+cifar10,lie,0.1,0.4262,6998,0.6998,3246.65,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/14-20-44_cifar10_lie_tau0.10,
+cifar10,lie,0.2,0.455,7402,0.7402,3617.26,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/15-05-52_cifar10_lie_tau0.20,
+cifar10,lie,0.3,0.4483,7054,0.7054,3455.95,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/15-51-18_cifar10_lie_tau0.30,

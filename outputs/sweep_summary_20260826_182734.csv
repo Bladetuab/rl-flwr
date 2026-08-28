@@ -1,0 +1,2 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,ustad_cal,gaussian,,0,0.0,0.8359,0.0,0.404,1.0,1237,0.8531,549.73,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-26/18-27-34_mnist_ustad_cal_gaussian_tau0.00,

@@ -1,0 +1,55 @@
+% =============================================================
+%  SECTION III: PROBLEM FORMULATION
+% =============================================================
+\section{Problem Formulation}\label{sec:problem_formulation}
+
+In this section, we formulate the Byzantine-resilient federated learning problem as an optimization problem that jointly designs the anomaly detection mechanism and the aggregation policy to maximize the global model performance while filtering out malicious clients.
+
+\subsection{Federated Learning Model}
+
+We consider a federated learning system consisting of one central server and a set of $N$ clients, denoted by $\mathcal{N} = \{1, 2, \ldots, N\}$. Each client $i \in \mathcal{N}$ possesses a local dataset $\mathcal{D}_i$ of size $|\mathcal{D}_i|$. Let $\boldsymbol{\theta}^{(t)} \in \mathbb{R}^d$ denote the $d$-dimensional global model parameters at communication round~$t$, where $t \in \{1, 2, \ldots, T\}$ and $T$ is the total number of communication rounds. At each round~$t$, the server broadcasts the current global model $\boldsymbol{\theta}^{(t)}$ to a selected subset of clients $\mathcal{S}^{(t)} \subseteq \mathcal{N}$. Each selected client $i \in \mathcal{S}^{(t)}$ performs local training on $\mathcal{D}_i$ using stochastic gradient descent (SGD) and computes a local model update, which is calculated as
+\begin{equation}\label{eq:local_update}
+    \boldsymbol{\Delta}_i^{(t)} = \boldsymbol{\theta}_i^{(t)} - \boldsymbol{\theta}^{(t)},
+\end{equation}
+where $\boldsymbol{\theta}_i^{(t)}$ denotes the local model parameters of client $i$ after local training at round~$t$. In the standard federated averaging (FedAvg) framework, the server aggregates the received updates as
+\begin{equation}\label{eq:fedavg}
+    \boldsymbol{\theta}^{(t+1)} = \boldsymbol{\theta}^{(t)} + \frac{1}{|\mathcal{S}^{(t)}|} \sum_{i \in \mathcal{S}^{(t)}} \boldsymbol{\Delta}_i^{(t)}.
+\end{equation}
+
+The objective of the federated learning system is to minimize the global loss function $F(\boldsymbol{\theta})$ over the distributed datasets, which is expressed as
+\begin{equation}\label{eq:global_loss}
+    \min_{\boldsymbol{\theta}} F(\boldsymbol{\theta}) = \sum_{i=1}^{N} \frac{|\mathcal{D}_i|}{|\mathcal{D}|} F_i(\boldsymbol{\theta}),
+\end{equation}
+where $|\mathcal{D}| = \sum_{i=1}^{N} |\mathcal{D}_i|$ is the total number of data samples and $F_i(\boldsymbol{\theta}) = \mathbb{E}_{\xi \sim \mathcal{D}_i}[\ell(\boldsymbol{\theta}; \xi)]$ is the local loss function of client $i$ with $\ell(\cdot)$ denoting the per-sample loss.
+
+\subsection{Byzantine Threat Model}
+
+Among the $N$ clients, an unknown subset $\mathcal{M} \subset \mathcal{N}$ of $K = |\mathcal{M}|$ clients are Byzantine malicious, where the set $\mathcal{M}$ and the number $K$ are unknown to the server. Let $\mathcal{B} = \mathcal{N} \setminus \mathcal{M}$ denote the set of benign clients. A Byzantine client $i \in \mathcal{M}$ can send an arbitrary corrupted update $\widetilde{\boldsymbol{\Delta}}_i^{(t)}$ to the server at round~$t$ in order to degrade the global model performance. Without loss of generality, we consider the following representative attack models:
+
+\begin{itemize}
+    \item \textit{Gaussian attack}: The malicious client sends $\widetilde{\boldsymbol{\Delta}}_i^{(t)} = \boldsymbol{\Delta}_i^{(t)} + \boldsymbol{\epsilon}$, where $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I}_d)$ with a large noise magnitude $\sigma$.
+    \item \textit{LIE attack}: The malicious clients collude to send $\widetilde{\boldsymbol{\Delta}}_i^{(t)} = \boldsymbol{\mu}^{(t)} - z_{\max} \cdot (\boldsymbol{\sigma}^{(t)})^{0.5}$, where $\boldsymbol{\mu}^{(t)}$ and $\boldsymbol{\sigma}^{(t)}$ are the coordinate-wise mean and standard deviation of benign updates, and $z_{\max}$ is a scaling factor chosen to evade statistical detection.
+    \item \textit{Min-Max attack}: The adversary solves an inner optimization to find the worst-case perturbation that maximizes the distance of the aggregated model from the true aggregate while remaining within a clipping bound.
+    \item \textit{Fang attack}: The malicious clients craft updates along the direction of the aggregated gradient with an amplified magnitude, i.e., $\widetilde{\boldsymbol{\Delta}}_i^{(t)} = \boldsymbol{\mu}_{\mathcal{B}}^{(t)} + \gamma \cdot \nabla F(\boldsymbol{\theta}^{(t)})$, where $\gamma$ is the perturbation factor.
+\end{itemize}
+
+It is worth noting that the attack patterns exhibit diverse characteristics: the Gaussian attack inflates the update magnitude significantly, the LIE attack crafts subtle perturbations that are statistically close to benign updates, the Min-Max attack produces identical poisoned vectors across colluding clients, and the Fang attack amplifies the gradient direction. These diverse attack characteristics pose a significant challenge for designing a unified detection mechanism.
+
+\subsection{Optimization Problem Formulation}
+
+To handle the multiple-target objective of maximizing the detection accuracy of Byzantine clients while minimizing the impact on the global model convergence, we formulate an optimization problem of maximizing the robust aggregation performance by jointly designing the anomaly detection function $g(\cdot)$ and the adaptive filtering threshold $\tau^{(t)}$. Let $\hat{y}_i^{(t)} = \mathbb{1}\{g(\boldsymbol{\Delta}_i^{(t)}, \mathcal{H}_i^{(t)}) > \tau^{(t)}\}$ denote the binary detection decision for client $i$ at round $t$, where $g(\cdot)$ is the anomaly scoring function and $\mathcal{H}_i^{(t)}$ represents the temporal history of client $i$ up to round $t$. Let $\mathcal{A}^{(t)} = \{i \in \mathcal{S}^{(t)} : \hat{y}_i^{(t)} = 0\}$ denote the set of clients accepted for aggregation at round~$t$. Accordingly, the formulated problem can be expressed as
+\begin{subequations}\label{eq:P1}
+\begin{align}
+    (\text{P1}): \quad \min_{\boldsymbol{\theta}, g(\cdot), \{\tau^{(t)}\}_{t=1}^{T}} \quad & F\left(\boldsymbol{\theta}^{(T)}\right) \label{eq:P1_obj} \\
+    \text{s.t.} \quad & \frac{1}{T} \sum_{t=1}^{T} \frac{1}{K} \sum_{i \in \mathcal{M}} \hat{y}_i^{(t)} \geq 1 - \epsilon_{\text{FN}}, \label{eq:P1a} \\
+    & \frac{1}{T} \sum_{t=1}^{T} \frac{1}{N-K} \sum_{i \in \mathcal{B}} (1 - \hat{y}_i^{(t)}) \geq 1 - \epsilon_{\text{FP}}, \label{eq:P1b} \\
+    & |\mathcal{A}^{(t)}| \geq N_{\min}, \quad \forall t, \label{eq:P1c} \\
+    & \boldsymbol{\theta}^{(t+1)} = \boldsymbol{\theta}^{(t)} + \frac{1}{|\mathcal{A}^{(t)}|} \sum_{i \in \mathcal{A}^{(t)}} \boldsymbol{\Delta}_i^{(t)}, \quad \forall t, \label{eq:P1d} \\
+    & C_g^{(t)} \leq C_{\max}, \quad \forall t, \label{eq:P1e}
+\end{align}
+\end{subequations}
+where \eqref{eq:P1a} is the constraint on the average true positive rate (detection rate) over all rounds with tolerance $\epsilon_{\text{FN}}$, \eqref{eq:P1b} is the constraint on the average true negative rate (benign preservation) with tolerance $\epsilon_{\text{FP}}$, \eqref{eq:P1c} ensures a minimum number $N_{\min}$ of clients are accepted for aggregation at each round to prevent federation collapse, \eqref{eq:P1d} represents the robust aggregation update rule using only accepted clients, and \eqref{eq:P1e} constrains the computational cost $C_g^{(t)}$ of the anomaly scoring function at each round to be within a budget $C_{\max}$.
+
+Solving Problem (P1) is challenging because of the following reasons. First, the malicious client set $\mathcal{M}$ and the number of attackers $K$ are unknown to the server, which renders the constraints \eqref{eq:P1a} and \eqref{eq:P1b} implicit and non-verifiable during training. Second, the attack patterns are diverse and non-stationary, ranging from high-magnitude perturbations to subtle, statistically evasive manipulations, which makes it difficult to design a single anomaly scoring function $g(\cdot)$ that generalizes across all attack types. Third, the detection decisions and the aggregation process are tightly coupled: an overly aggressive filtering threshold $\tau^{(t)}$ may exclude benign clients and hinder convergence, while a lenient threshold may allow malicious updates to poison the global model. In particular, the LIE attack produces updates whose per-round statistical features closely resemble benign updates, making conventional single-round detection methods insufficient for identifying such sophisticated adversaries.
+
+Fortunately, spatiotemporal anomaly detection using deep learning has emerged as an effective approach for addressing problems where the anomaly patterns are complex, multi-dimensional, and exhibit temporal correlations. In particular, the Convolutional Long Short-Term Memory (ConvLSTM) architecture has been widely adopted due to its ability to simultaneously capture spatial structures and temporal dependencies in sequential data. Motivated by these observations, we propose a spatiotemporal ConvLSTM-based anomaly detection framework integrated with Exponentially Weighted Moving Average (EWMA) temporal smoothing to jointly address the detection and filtering challenges in Problem~(P1). Hence, in this work, we develop a novel Byzantine-resilient federated aggregation framework, referred to as \textit{ST-ConvLSTM-EWMA}, that transforms the high-dimensional model updates into structured spatiotemporal representations and leverages unsupervised forecasting-based anomaly detection to identify malicious clients.

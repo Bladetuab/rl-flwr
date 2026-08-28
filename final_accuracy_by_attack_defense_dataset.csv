@@ -1,0 +1,33 @@
+Attack type,Defensive,Dataset,Final accuracy
+Min-Max,Multi-Krum,MNIST,0.5769
+Min-Max,Multi-Krum,Fashion-MNIST,0.7332
+Min-Max,FLTrust,MNIST,0.7644
+Min-Max,FLTrust,Fashion-MNIST,0.6656
+Min-Max,FLDefender,MNIST,0.1028
+Min-Max,FLDefender,Fashion-MNIST,0.7036
+Min-Max,Our Method,MNIST,0.9589
+Min-Max,Our Method,Fashion-MNIST,0.8247
+Fang,Multi-Krum,MNIST,0.0958
+Fang,Multi-Krum,Fashion-MNIST,0.5414
+Fang,FLTrust,MNIST,0.7025
+Fang,FLTrust,Fashion-MNIST,0.6318
+Fang,FLDefender,MNIST,0.8777
+Fang,FLDefender,Fashion-MNIST,0.7379
+Fang,Our Method,MNIST,0.8834
+Fang,Our Method,Fashion-MNIST,0.7141
+Gaussian,Multi-Krum,MNIST,0.8848
+Gaussian,Multi-Krum,Fashion-MNIST,0.7256
+Gaussian,FLTrust,MNIST,0.6504
+Gaussian,FLTrust,Fashion-MNIST,0.5865
+Gaussian,FLDefender,MNIST,0.1034
+Gaussian,FLDefender,Fashion-MNIST,0.1003
+Gaussian,Our Method,MNIST,0.9604
+Gaussian,Our Method,Fashion-MNIST,0.8173
+LIE,Multi-Krum,MNIST,0.8881
+LIE,Multi-Krum,Fashion-MNIST,0.7286
+LIE,FLTrust,MNIST,0.6930
+LIE,FLTrust,Fashion-MNIST,0.6508
+LIE,FLDefender,MNIST,0.1028
+LIE,FLDefender,Fashion-MNIST,0.1000
+LIE,Our Method,MNIST,0.9598
+LIE,Our Method,Fashion-MNIST,0.8174

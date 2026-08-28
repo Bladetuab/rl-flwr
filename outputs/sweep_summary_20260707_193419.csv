@@ -1,0 +1,12 @@
+dataset,attack_mode,tau_s_quantile,final_accuracy,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+cifar10,min_max,0.0,0.4567,3573,0.7146,1624.36,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/19-34-19_cifar10_min_max_tau0.00,
+cifar10,min_max,0.1,0.4351,3547,0.7094,1617.81,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/20-14-24_cifar10_min_max_tau0.10,
+cifar10,min_max,0.2,0.4523,3412,0.6824,1618.95,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/20-54-06_cifar10_min_max_tau0.20,
+cifar10,min_max,0.3,0.4583,3400,0.68,1522.62,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/21-35-14_cifar10_min_max_tau0.30,
+cifar10,min_max,0.4,0.4518,3057,0.6114,1417.12,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/22-15-43_cifar10_min_max_tau0.40,
+cifar10,min_max,0.5,0.474,2690,0.538,1243.71,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/22-55-50_cifar10_min_max_tau0.50,
+cifar10,min_max,0.6,0.4784,2320,0.464,1089.83,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/23-36-11_cifar10_min_max_tau0.60,
+cifar10,min_max,0.7,0.4488,1940,0.388,920.17,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-08/00-16-40_cifar10_min_max_tau0.70,
+cifar10,min_max,0.8,0.4696,1560,0.312,727.68,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-08/00-57-08_cifar10_min_max_tau0.80,
+cifar10,min_max,0.9,0.4654,1180,0.236,583.53,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-08/01-37-41_cifar10_min_max_tau0.90,
+cifar10,min_max,1.0,0.4297,854,0.1708,406.65,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-08/02-18-17_cifar10_min_max_tau1.00,

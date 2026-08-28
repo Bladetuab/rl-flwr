@@ -1,0 +1,5 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,ustad_cal,gaussian,,0,0.6,0.9572,0.0,0.274,1.0,650,0.4483,295.32,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-26/17-14-24_mnist_ustad_cal_gaussian_tau0.60,
+mnist,ustad_cal,lie,,0,0.6,0.9381,0.0,0.4167,1.0,650,0.4483,292.4,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-26/17-29-26_mnist_ustad_cal_lie_tau0.60,
+mnist,ustad_cal,min_max,,0,0.6,0.9064,0.0,0.3733,1.0,650,0.4483,293.54,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-26/17-44-03_mnist_ustad_cal_min_max_tau0.60,
+mnist,ustad_cal,fang,,0,0.6,0.9136,0.0,0.4053,1.0,650,0.4483,302.71,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-26/17-59-18_mnist_ustad_cal_fang_tau0.60,

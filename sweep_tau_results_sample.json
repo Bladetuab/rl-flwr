@@ -1,0 +1,68 @@
+[
+  {
+    "tau_s_quantile": 0.0,
+    "accuracy": 0.9116,
+    "total_convlstm_forwards": 2500,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/14-57-04"
+  },
+  {
+    "tau_s_quantile": 0.1,
+    "accuracy": 0.9082,
+    "total_convlstm_forwards": 2500,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/16-08-34"
+  },
+  {
+    "tau_s_quantile": 0.2,
+    "accuracy": 0.8983,
+    "total_convlstm_forwards": 2500,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/16-31-34"
+  },
+  {
+    "tau_s_quantile": 0.3,
+    "accuracy": 0.91,
+    "total_convlstm_forwards": 2500,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/16-54-08"
+  },
+  {
+    "tau_s_quantile": 0.4,
+    "accuracy": 0.9253,
+    "total_convlstm_forwards": 2500,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/15-19-59"
+  },
+  {
+    "tau_s_quantile": 0.5,
+    "accuracy": 0.0982,
+    "total_convlstm_forwards": 2500,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/17-16-41"
+  },
+  {
+    "tau_s_quantile": 0.6,
+    "accuracy": 0.9211,
+    "total_convlstm_forwards": 2460,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/17-39-35"
+  },
+  {
+    "tau_s_quantile": 0.7,
+    "accuracy": 0.9172,
+    "total_convlstm_forwards": 2210,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/18-02-26"
+  },
+{
+    "tau_s_quantile": 0.8,
+    "accuracy": 0.8906,
+    "total_convlstm_forwards": 1880,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/15-44-40"
+  },
+  {
+    "tau_s_quantile": 0.9,
+    "accuracy": 0.9029,
+    "total_convlstm_forwards": 1540,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/18-25-20"
+  },
+  {
+    "tau_s_quantile": 1.0,
+    "accuracy": 0.8928,
+    "total_convlstm_forwards": 1211,
+    "result_dir": "/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-03-24/18-47-57"
+  }
+]

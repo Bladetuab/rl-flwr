@@ -1,0 +1,12 @@
+dataset,attack_mode,tau_s_quantile,final_accuracy,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+cifar10,no_attack,0.0,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.1,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.2,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.3,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.4,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.5,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.6,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.7,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.8,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,0.9,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.
+cifar10,no_attack,1.0,nan,nan,nan,nan,,Message content is None. Use <message>.has_content() to check if a message has content.

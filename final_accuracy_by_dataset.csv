@@ -1,0 +1,134 @@
+dataset,label,final_round,final_accuracy,status,path
+MNIST,FedAvg + Min-Max,30,0.0982,ok,outputs/2026-04-01/fedavg_min_max/results.json
+MNIST,FedAvg + LIE,30,0.1135,ok,outputs/2026-04-01/fedavg_lie/results.json
+MNIST,FedAvg + Gaussian,30,0.0891,ok,outputs/2026-04-01/gaussian/results.json
+MNIST,FedAvg + Fang,30,0.7784,ok,outputs/2026-04-10/15-45-53_fang_FedAvg_mnist/results.json
+MNIST,Our Method (Gaussian),30,0.8884,ok,outputs/2026-04-08/21-11-36_gaussian_mnist/results.json
+MNIST,FLTrust (Gaussian),30,0.6504,ok,outputs/2026-04-08/15-15-33_gaussian_FLtrust_mnist/results.json
+MNIST,FLDetector (Gaussian),30,0.1034,ok,outputs/2026-04-09/22-33-56_gaussian_FLdetector_mnist/results.json
+MNIST,Multi-Krum (Gaussian),30,0.8848,ok,outputs/2026-04-08/18-25-18_gaussian_multikrum_mnist/results.json
+MNIST,FedAvg + Gaussian (2026-04-07),30,0.1163,ok,outputs/2026-04-07/20-09-03_gaussian_FedAvg_mnist/results.json
+MNIST,FLTrust (Fang),30,0.7025,ok,outputs/2026-04-08/14-33-19_fang_FLtrust_mnist/results.json
+MNIST,FLTrust (Min-Max),30,0.7644,ok,outputs/2026-04-08/14-52-58_minmax_FLtrust_mnist/results.json
+MNIST,FLTrust (LIE),30,0.693,ok,outputs/2026-04-08/15-33-56_lie_FLtrust_mnist/results.json
+MNIST,Multi-Krum (Fang),30,0.0958,ok,outputs/2026-04-08/16-53-19_fang_multikrum_mnist/results.json
+MNIST,Multi-Krum (Min-Max),30,0.5769,ok,outputs/2026-04-08/17-19-36_min_max_multikrum_mnist/results.json
+MNIST,Multi-Krum (LIE),30,0.8881,ok,outputs/2026-04-08/18-13-13_lie_multikrum_mnist/results.json
+MNIST,Our Method (Min-Max),30,0.8701,ok,outputs/2026-04-08/19-05-26_min_max_mnist/results.json
+MNIST,Our Method (Fang),30,0.7701,ok,outputs/2026-04-08/20-14-25_fang_mnist/results.json
+MNIST,Our Method (LIE),30,0.8808,ok,outputs/2026-04-08/20-59-54_lie_mnist/results.json
+MNIST,Our Method (Fang) (2026-04-09),30,0.7832,ok,outputs/2026-04-09/15-04-42_fang_mnist/results.json
+MNIST,FLDetector (Min-Max),30,0.1028,ok,outputs/2026-04-09/21-47-29_minmax_FLdetector_mnist/results.json
+MNIST,FLDetector (Fang),30,0.8777,ok,outputs/2026-04-09/22-01-08_fang_FLdetector_mnist/results.json
+MNIST,FLDetector (LIE),30,0.1028,ok,outputs/2026-04-09/22-22-04_lie_FLdetector_mnist/results.json
+MNIST,"Our Method (Min-Max, tau=0.00)",50,0.955,ok,outputs/2026-07-09/17-58-09_mnist_min_max_tau0.00/results.json
+MNIST,"Our Method (Min-Max, tau=0.10)",50,0.9568,ok,outputs/2026-07-09/18-40-54_mnist_min_max_tau0.10/results.json
+MNIST,"Our Method (Min-Max, tau=0.20)",50,0.9481,ok,outputs/2026-07-09/19-21-58_mnist_min_max_tau0.20/results.json
+MNIST,"Our Method (Min-Max, tau=0.30)",50,0.9574,ok,outputs/2026-07-09/20-03-05_mnist_min_max_tau0.30/results.json
+MNIST,"Our Method (Min-Max, tau=0.40)",50,0.9566,ok,outputs/2026-07-09/20-44-13_mnist_min_max_tau0.40/results.json
+MNIST,"Our Method (Min-Max, tau=0.50)",50,0.9589,ok,outputs/2026-07-09/21-25-30_mnist_min_max_tau0.50/results.json
+MNIST,"Our Method (Min-Max, tau=0.60)",50,0.9508,ok,outputs/2026-07-09/22-06-52_mnist_min_max_tau0.60/results.json
+MNIST,"Our Method (Min-Max, tau=0.70)",50,0.946,ok,outputs/2026-07-09/22-48-28_mnist_min_max_tau0.70/results.json
+MNIST,"Our Method (Min-Max, tau=0.80)",50,0.9568,ok,outputs/2026-07-09/23-29-56_mnist_min_max_tau0.80/results.json
+MNIST,"Our Method (Min-Max, tau=0.90)",50,0.9519,ok,outputs/2026-07-10/00-11-19_mnist_min_max_tau0.90/results.json
+MNIST,"Our Method (Min-Max, tau=1.00)",50,0.9539,ok,outputs/2026-07-10/00-53-12_mnist_min_max_tau1.00/results.json
+MNIST,"Our Method (LIE, tau=0.00)",50,0.944,ok,outputs/2026-07-10/01-34-28_mnist_lie_tau0.00/results.json
+MNIST,"Our Method (LIE, tau=0.10)",50,0.9489,ok,outputs/2026-07-10/02-11-28_mnist_lie_tau0.10/results.json
+MNIST,"Our Method (LIE, tau=0.20)",50,0.9362,ok,outputs/2026-07-10/02-48-39_mnist_lie_tau0.20/results.json
+MNIST,"Our Method (LIE, tau=0.30)",50,0.9436,ok,outputs/2026-07-10/03-25-52_mnist_lie_tau0.30/results.json
+MNIST,"Our Method (LIE, tau=0.40)",50,0.9507,ok,outputs/2026-07-10/04-03-03_mnist_lie_tau0.40/results.json
+MNIST,"Our Method (LIE, tau=0.50)",50,0.9509,ok,outputs/2026-07-10/04-40-18_mnist_lie_tau0.50/results.json
+MNIST,"Our Method (LIE, tau=0.60)",50,0.9318,ok,outputs/2026-07-10/05-17-37_mnist_lie_tau0.60/results.json
+MNIST,"Our Method (LIE, tau=0.70)",50,0.9476,ok,outputs/2026-07-10/05-54-59_mnist_lie_tau0.70/results.json
+MNIST,"Our Method (LIE, tau=0.80)",50,0.9598,ok,outputs/2026-07-10/06-32-21_mnist_lie_tau0.80/results.json
+MNIST,"Our Method (LIE, tau=0.90)",50,0.9479,ok,outputs/2026-07-10/07-09-50_mnist_lie_tau0.90/results.json
+MNIST,"Our Method (LIE, tau=1.00)",50,0.945,ok,outputs/2026-07-10/07-47-16_mnist_lie_tau1.00/results.json
+MNIST,"Our Method (Gaussian, tau=0.00)",50,0.9601,ok,outputs/2026-07-10/08-24-43_mnist_gaussian_tau0.00/results.json
+MNIST,"Our Method (Gaussian, tau=0.10)",50,0.9593,ok,outputs/2026-07-10/09-02-26_mnist_gaussian_tau0.10/results.json
+MNIST,"Our Method (Gaussian, tau=0.20)",50,0.9597,ok,outputs/2026-07-10/09-40-01_mnist_gaussian_tau0.20/results.json
+MNIST,"Our Method (Gaussian, tau=0.30)",50,0.9595,ok,outputs/2026-07-10/10-17-35_mnist_gaussian_tau0.30/results.json
+MNIST,"Our Method (Gaussian, tau=0.40)",50,0.9532,ok,outputs/2026-07-10/10-55-10_mnist_gaussian_tau0.40/results.json
+MNIST,"Our Method (Gaussian, tau=0.50)",50,0.9547,ok,outputs/2026-07-10/11-32-45_mnist_gaussian_tau0.50/results.json
+MNIST,"Our Method (Gaussian, tau=0.60)",50,0.957,ok,outputs/2026-07-10/12-10-10_mnist_gaussian_tau0.60/results.json
+MNIST,"Our Method (Gaussian, tau=0.70)",50,0.9549,ok,outputs/2026-07-10/12-47-29_mnist_gaussian_tau0.70/results.json
+MNIST,"Our Method (Gaussian, tau=0.80)",50,0.9604,ok,outputs/2026-07-10/13-24-58_mnist_gaussian_tau0.80/results.json
+MNIST,"Our Method (Gaussian, tau=0.90)",50,0.9539,ok,outputs/2026-07-10/14-02-16_mnist_gaussian_tau0.90/results.json
+MNIST,"Our Method (Gaussian, tau=1.00)",50,0.9591,ok,outputs/2026-07-10/14-39-36_mnist_gaussian_tau1.00/results.json
+MNIST,"Our Method (No Attack, tau=0.00)",50,0.9622,ok,outputs/2026-07-10/15-16-55_mnist_no_attack_tau0.00/results.json
+MNIST,"Our Method (Fang, tau=0.00)",50,0.8451,ok,outputs/2026-07-24/12-06-09_mnist_fang_tau0.00/results.json
+MNIST,"Our Method (Fang, tau=0.10)",50,0.815,ok,outputs/2026-07-24/12-44-29_mnist_fang_tau0.10/results.json
+MNIST,"Our Method (Fang, tau=0.20)",50,0.8411,ok,outputs/2026-07-24/13-22-59_mnist_fang_tau0.20/results.json
+MNIST,"Our Method (Fang, tau=0.30)",50,0.8061,ok,outputs/2026-07-24/14-01-15_mnist_fang_tau0.30/results.json
+MNIST,"Our Method (Fang, tau=0.40)",50,0.8655,ok,outputs/2026-07-24/14-39-37_mnist_fang_tau0.40/results.json
+MNIST,"Our Method (Fang, tau=0.50)",50,0.8834,ok,outputs/2026-07-24/15-18-44_mnist_fang_tau0.50/results.json
+MNIST,"Our Method (Fang, tau=0.60)",50,0.8175,ok,outputs/2026-07-24/15-57-59_mnist_fang_tau0.60/results.json
+MNIST,"Our Method (Fang, tau=0.70)",50,0.7998,ok,outputs/2026-07-24/16-36-39_mnist_fang_tau0.70/results.json
+MNIST,"Our Method (Fang, tau=0.80)",50,0.868,ok,outputs/2026-07-24/17-15-34_mnist_fang_tau0.80/results.json
+MNIST,"Our Method (Fang, tau=0.90)",50,0.8709,ok,outputs/2026-07-24/17-54-42_mnist_fang_tau0.90/results.json
+MNIST,"Our Method (Fang, tau=1.00)",50,0.7841,ok,outputs/2026-07-24/18-33-47_mnist_fang_tau1.00/results.json
+Fashion-MNIST,FedAvg + Min-Max,30,0.1999,ok,outputs/2026-04-02/18-02-27_min_max/results.json
+Fashion-MNIST,FedAvg + LIE,30,0.1,ok,outputs/2026-04-02/17-49-32_lie/results.json
+Fashion-MNIST,FedAvg + Gaussian,30,0.1001,ok,outputs/2026-04-02/17-35-06_gaussian/results.json
+Fashion-MNIST,FedAvg + Fang,30,0.712,ok,outputs/2026-04-10/16-00-36_fang_FedAvg_famnist/results.json
+Fashion-MNIST,Our Method (Gaussian),30,0.7442,ok,outputs/2026-04-09/16-16-15_gaussian_famnist/results.json
+Fashion-MNIST,FLTrust (Gaussian),30,0.5865,ok,outputs/2026-04-09/19-42-14_gaussian_FLtrust_famnist/results.json
+Fashion-MNIST,FLDetector (Gaussian),30,0.1003,ok,outputs/2026-04-10/11-46-15_gaussian_FLdetector_famnist/results.json
+Fashion-MNIST,Multi-Krum (Gaussian),30,0.7256,ok,outputs/2026-04-09/16-29-46_gaussian_multikrum_famnist/results.json
+Fashion-MNIST,FedAvg + Gaussian (2026-04-07),30,0.0865,ok,outputs/2026-04-07/19-57-31_gaussian_FedAvg_famnist/results.json
+Fashion-MNIST,Our Method (Fang),30,0.6984,ok,outputs/2026-04-09/15-27-35_fang_famnist/results.json
+Fashion-MNIST,Our Method (LIE),30,0.7355,ok,outputs/2026-04-09/15-44-04_lie_famnist/results.json
+Fashion-MNIST,Our Method (Min-Max),30,0.7414,ok,outputs/2026-04-09/15-57-26_min_max_famnist/results.json
+Fashion-MNIST,Multi-Krum (LIE),30,0.7286,ok,outputs/2026-04-09/16-42-20_lie_multikrum_famnist/results.json
+Fashion-MNIST,Multi-Krum (Min-Max),30,0.7332,ok,outputs/2026-04-09/16-54-24_min_max_multikrum_famnist/results.json
+Fashion-MNIST,Multi-Krum (Fang),30,0.5414,ok,outputs/2026-04-09/17-08-36_fang_multikrum_famnist/results.json
+Fashion-MNIST,FLTrust (LIE),30,0.6508,ok,outputs/2026-04-09/19-58-34_lie_FLtrust_famnist/results.json
+Fashion-MNIST,FLTrust (Fang),30,0.6318,ok,outputs/2026-04-09/20-17-08_fang_FLtrust_famnist/results.json
+Fashion-MNIST,FLTrust (Min-Max),30,0.6656,ok,outputs/2026-04-09/20-36-37_minmax_FLtrust_famnist/results.json
+Fashion-MNIST,FLDetector (LIE),30,0.1,ok,outputs/2026-04-10/12-06-09_lie_FLdetector_famnist/results.json
+Fashion-MNIST,FLDetector (Min-Max),30,0.7036,ok,outputs/2026-04-10/12-19-12_minmax_FLdetector_famnist/results.json
+Fashion-MNIST,FLDetector (Fang),30,0.7379,ok,outputs/2026-04-10/12-32-47_fang_FLdetector_famnist/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.00)",50,0.8146,ok,outputs/2026-07-10/15-54-12_fashion_mnist_min_max_tau0.00/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.10)",50,0.8083,ok,outputs/2026-07-10/16-36-36_fashion_mnist_min_max_tau0.10/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.20)",50,0.8247,ok,outputs/2026-07-10/17-18-58_fashion_mnist_min_max_tau0.20/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.30)",50,0.8045,ok,outputs/2026-07-10/18-01-20_fashion_mnist_min_max_tau0.30/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.40)",50,0.8079,ok,outputs/2026-07-10/18-43-36_fashion_mnist_min_max_tau0.40/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.50)",50,0.8069,ok,outputs/2026-07-10/19-26-28_fashion_mnist_min_max_tau0.50/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.60)",50,0.7996,ok,outputs/2026-07-10/20-08-48_fashion_mnist_min_max_tau0.60/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.70)",50,0.7957,ok,outputs/2026-07-10/20-51-07_fashion_mnist_min_max_tau0.70/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.80)",50,0.7979,ok,outputs/2026-07-10/21-33-30_fashion_mnist_min_max_tau0.80/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=0.90)",50,0.8125,ok,outputs/2026-07-10/22-16-18_fashion_mnist_min_max_tau0.90/results.json
+Fashion-MNIST,"Our Method (Min-Max, tau=1.00)",50,0.7988,ok,outputs/2026-07-10/22-58-30_fashion_mnist_min_max_tau1.00/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.00)",50,0.8128,ok,outputs/2026-07-10/23-40-39_fashion_mnist_lie_tau0.00/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.10)",50,0.7992,ok,outputs/2026-07-11/00-18-40_fashion_mnist_lie_tau0.10/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.20)",50,0.8014,ok,outputs/2026-07-11/00-56-45_fashion_mnist_lie_tau0.20/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.30)",50,0.8174,ok,outputs/2026-07-11/01-34-56_fashion_mnist_lie_tau0.30/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.40)",50,0.7901,ok,outputs/2026-07-11/02-13-01_fashion_mnist_lie_tau0.40/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.50)",50,0.7997,ok,outputs/2026-07-11/02-51-18_fashion_mnist_lie_tau0.50/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.60)",50,0.7718,ok,outputs/2026-07-11/03-29-24_fashion_mnist_lie_tau0.60/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.70)",50,0.7946,ok,outputs/2026-07-11/04-07-27_fashion_mnist_lie_tau0.70/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.80)",50,0.8094,ok,outputs/2026-07-11/04-45-33_fashion_mnist_lie_tau0.80/results.json
+Fashion-MNIST,"Our Method (LIE, tau=0.90)",50,0.7872,ok,outputs/2026-07-11/05-23-39_fashion_mnist_lie_tau0.90/results.json
+Fashion-MNIST,"Our Method (LIE, tau=1.00)",50,0.7966,ok,outputs/2026-07-11/06-01-48_fashion_mnist_lie_tau1.00/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.00)",50,0.8131,ok,outputs/2026-07-11/06-39-55_fashion_mnist_gaussian_tau0.00/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.10)",50,0.8173,ok,outputs/2026-07-11/07-18-10_fashion_mnist_gaussian_tau0.10/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.20)",50,0.8045,ok,outputs/2026-07-11/07-56-23_fashion_mnist_gaussian_tau0.20/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.30)",50,0.8096,ok,outputs/2026-07-11/08-34-37_fashion_mnist_gaussian_tau0.30/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.40)",50,0.7996,ok,outputs/2026-07-11/09-12-58_fashion_mnist_gaussian_tau0.40/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.50)",50,0.8112,ok,outputs/2026-07-11/09-51-11_fashion_mnist_gaussian_tau0.50/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.60)",50,0.8003,ok,outputs/2026-07-11/10-29-25_fashion_mnist_gaussian_tau0.60/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.70)",50,0.8164,ok,outputs/2026-07-11/11-07-33_fashion_mnist_gaussian_tau0.70/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.80)",50,0.8074,ok,outputs/2026-07-11/11-45-49_fashion_mnist_gaussian_tau0.80/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=0.90)",50,0.8092,ok,outputs/2026-07-11/12-24-03_fashion_mnist_gaussian_tau0.90/results.json
+Fashion-MNIST,"Our Method (Gaussian, tau=1.00)",50,0.8052,ok,outputs/2026-07-11/13-02-31_fashion_mnist_gaussian_tau1.00/results.json
+Fashion-MNIST,"Our Method (No Attack, tau=0.00)",50,0.8167,ok,outputs/2026-07-11/13-40-49_fashion_mnist_no_attack_tau0.00/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.00)",50,0.6869,ok,outputs/2026-07-24/19-12-46_fashion_mnist_fang_tau0.00/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.10)",50,0.7102,ok,outputs/2026-07-24/19-52-22_fashion_mnist_fang_tau0.10/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.20)",50,0.6736,ok,outputs/2026-07-24/20-32-12_fashion_mnist_fang_tau0.20/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.30)",50,0.7062,ok,outputs/2026-07-24/21-12-05_fashion_mnist_fang_tau0.30/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.40)",50,0.6272,ok,outputs/2026-07-24/21-51-43_fashion_mnist_fang_tau0.40/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.50)",50,0.6698,ok,outputs/2026-07-24/22-31-26_fashion_mnist_fang_tau0.50/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.60)",50,0.6994,ok,outputs/2026-07-24/23-11-08_fashion_mnist_fang_tau0.60/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.70)",50,0.7076,ok,outputs/2026-07-24/23-50-48_fashion_mnist_fang_tau0.70/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.80)",50,0.7141,ok,outputs/2026-07-25/00-30-38_fashion_mnist_fang_tau0.80/results.json
+Fashion-MNIST,"Our Method (Fang, tau=0.90)",50,0.6999,ok,outputs/2026-07-25/01-10-16_fashion_mnist_fang_tau0.90/results.json
+Fashion-MNIST,"Our Method (Fang, tau=1.00)",50,0.658,ok,outputs/2026-07-25/01-49-58_fashion_mnist_fang_tau1.00/results.json

@@ -1,0 +1,19 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,fltrust,gaussian,,0,0.6,0.889,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-15/21-18-33_mnist_fltrust_gaussian_tau0.60,
+mnist,fltrust,lie,,0,0.6,0.8086,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-15/21-48-16_mnist_fltrust_lie_tau0.60,
+mnist,fltrust,min_max,,nan,0.6,nan,nan,nan,nan,nan,nan,nan,,'NoneType' object is not iterable
+mnist,fldetector,gaussian,,0,0.6,0.0981,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-15/22-18-08_mnist_fldetector_gaussian_tau0.60,
+mnist,fldetector,lie,,0,0.6,0.1135,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-15/22-39-48_mnist_fldetector_lie_tau0.60,
+mnist,fldetector,min_max,,0,0.6,0.1135,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-15/23-01-38_mnist_fldetector_min_max_tau0.60,
+mnist,multikrum,gaussian,,0,0.6,0.9603,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-15/23-23-28_mnist_multikrum_gaussian_tau0.60,
+mnist,multikrum,lie,,0,0.6,0.9584,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-15/23-45-12_mnist_multikrum_lie_tau0.60,
+mnist,multikrum,min_max,,0,0.6,0.9586,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/00-06-59_mnist_multikrum_min_max_tau0.60,
+fashion_mnist,fltrust,gaussian,,0,0.6,0.6648,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/00-32-34_fashion_mnist_fltrust_gaussian_tau0.60,
+fashion_mnist,fltrust,lie,,0,0.6,0.646,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/01-02-40_fashion_mnist_fltrust_lie_tau0.60,
+fashion_mnist,fltrust,min_max,,nan,0.6,nan,nan,nan,nan,nan,nan,nan,,'NoneType' object is not iterable
+fashion_mnist,fldetector,gaussian,,0,0.6,0.1,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/01-33-28_fashion_mnist_fldetector_gaussian_tau0.60,
+fashion_mnist,fldetector,lie,,0,0.6,0.1,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/01-55-54_fashion_mnist_fldetector_lie_tau0.60,
+fashion_mnist,fldetector,min_max,,0,0.6,0.1,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/02-18-20_fashion_mnist_fldetector_min_max_tau0.60,
+fashion_mnist,multikrum,gaussian,,0,0.6,0.8126,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/02-40-47_fashion_mnist_multikrum_gaussian_tau0.60,
+fashion_mnist,multikrum,lie,,0,0.6,0.8112,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/03-03-08_fashion_mnist_multikrum_lie_tau0.60,
+fashion_mnist,multikrum,min_max,,0,0.6,0.8015,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-16/03-25-29_fashion_mnist_multikrum_min_max_tau0.60,

@@ -1,0 +1,2 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,fedavg,min_max,,0,0.6,0.1032,0.36,0.0,0.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-27/20-48-25_mnist_fedavg_min_max_tau0.60,

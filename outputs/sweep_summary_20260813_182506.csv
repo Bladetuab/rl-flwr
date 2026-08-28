@@ -1,0 +1,2 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,signguard,no_attack,,0,0.6,0.9607,0.2162,0.2608,0.3994,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-13/18-25-06_mnist_signguard_no_attack_tau0.60,

@@ -1,0 +1,3 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,fltrust,min_max,,nan,0.6,nan,nan,nan,nan,nan,nan,nan,,'NoneType' object is not iterable
+fashion_mnist,fltrust,min_max,,nan,0.6,nan,nan,nan,nan,nan,nan,nan,,'NoneType' object is not iterable

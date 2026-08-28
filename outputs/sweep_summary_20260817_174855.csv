@@ -1,0 +1,9 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,fedavg,gaussian,,0,0.6,0.0892,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/17-48-55_mnist_fedavg_gaussian_tau0.60,
+mnist,fedavg,lie,,0,0.6,0.1028,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/18-11-09_mnist_fedavg_lie_tau0.60,
+mnist,fedavg,min_max,,0,0.6,0.0982,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/18-33-59_mnist_fedavg_min_max_tau0.60,
+mnist,fedavg,no_attack,,0,0.6,0.9583,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/19-01-17_mnist_fedavg_no_attack_tau0.60,
+fashion_mnist,fedavg,gaussian,,0,0.6,0.1002,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/19-24-59_fashion_mnist_fedavg_gaussian_tau0.60,
+fashion_mnist,fedavg,lie,,0,0.6,0.1,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/19-49-08_fashion_mnist_fedavg_lie_tau0.60,
+fashion_mnist,fedavg,min_max,,0,0.6,0.1,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/20-12-49_fashion_mnist_fedavg_min_max_tau0.60,
+fashion_mnist,fedavg,no_attack,,0,0.6,0.8107,nan,nan,nan,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-17/20-40-16_fashion_mnist_fedavg_no_attack_tau0.60,

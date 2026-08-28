@@ -1,0 +1,87 @@
+# =====================================================================
+# For a full TOML configuration guide, check the Flower docs:
+# https://flower.ai/docs/framework/how-to-configure-pyproject-toml.html
+# =====================================================================
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rl-flwr"
+version = "1.0.0"
+description = ""
+license = "Apache-2.0"
+# Dependencies for your Flower App
+dependencies = [
+    "flwr[simulation]>=1.23.0",
+    "flwr-datasets[vision]>=0.5.0",
+    "torch==2.7.1",
+    "torchvision==0.22.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.flwr.app]
+publisher = "tuan"
+
+# Point to your ServerApp and ClientApp objects
+[tool.flwr.app.components]
+serverapp = "rl_flwr.server_app:app"
+clientapp = "rl_flwr.client_app:app"
+
+[tool.flwr.app.config]
+num-server-rounds = 50
+fraction-train = 1
+fraction-evaluate = 1
+local-epochs = 10
+server-device = "cuda"
+anom-decay = 0.6
+tau-s-quantile = 0.8
+attack-mode = "gaussian" 
+
+
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+# [tool.flwr.federations]
+# default = "local-sim"
+
+# [tool.flwr.federations.local-sim]
+# options.num-supernodes = 50
+# options.backend.client-resources.num-cpus = 2 # each ClientApp assumes to use 2CPUs
+# options.backend.client-resources.num-gpus = 0.0 # ratio of VRAM a ClientApp has access to
+
+[tool.flwr.federations.local-sim-gpu]
+options.num-supernodes = 20
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 0.02

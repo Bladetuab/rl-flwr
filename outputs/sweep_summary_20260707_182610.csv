@@ -1,0 +1,2 @@
+dataset,attack_mode,tau_s_quantile,final_accuracy,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+cifar10,min_max,0.0,0.4629,3577,0.7154,1646.88,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-07-07/18-26-10_cifar10_min_max_tau0.00,

@@ -1,0 +1,11 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,ustad_cal,gaussian,,0,0.6,0.9704,0.0,0.0964,1.0,1110,0.4531,704.83,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/12-04-03_mnist_ustad_cal_gaussian_tau0.60,
+mnist,ustad_cal,lie,,0,0.6,0.9684,0.0,0.0964,1.0,1110,0.4531,691.43,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/12-38-00_mnist_ustad_cal_lie_tau0.60,
+mnist,ustad_cal,min_max,,0,0.6,0.9719,0.0,0.0964,1.0,1110,0.4531,620.8,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/13-13-49_mnist_ustad_cal_min_max_tau0.60,
+mnist,ustad_cal,fang,,0,0.6,0.9718,0.0,0.1036,1.0,1101,0.4494,649.74,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/13-49-59_mnist_ustad_cal_fang_tau0.60,
+mnist,ustad_cal,no_attack,,0,0.6,0.9688,0.2016,0.2628,0.44,1110,0.4531,621.87,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/14-25-46_mnist_ustad_cal_no_attack_tau0.60,
+fashion_mnist,ustad_cal,gaussian,,0,0.6,0.8378,0.0,0.0972,1.0,1110,0.4531,665.7,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/15-02-19_fashion_mnist_ustad_cal_gaussian_tau0.60,
+fashion_mnist,ustad_cal,lie,,0,0.6,0.8458,0.0,0.0964,1.0,1110,0.4531,640.6,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/15-39-35_fashion_mnist_ustad_cal_lie_tau0.60,
+fashion_mnist,ustad_cal,min_max,,0,0.6,0.8446,0.0,0.0956,1.0,1110,0.4531,640.11,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/16-16-56_fashion_mnist_ustad_cal_min_max_tau0.60,
+fashion_mnist,ustad_cal,fang,,0,0.6,0.8483,0.0,0.0964,1.0,1110,0.4531,652.64,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/16-55-22_fashion_mnist_ustad_cal_fang_tau0.60,
+fashion_mnist,ustad_cal,no_attack,,0,0.6,0.8358,0.2108,0.2844,0.4144,1110,0.4531,669.99,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-28/17-34-30_fashion_mnist_ustad_cal_no_attack_tau0.60,

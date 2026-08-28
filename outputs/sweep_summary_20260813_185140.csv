@@ -1,0 +1,4 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+fashion_mnist,signguard,min_max,,0,0.6,0.8131,0.0,0.0448,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-13/18-51-40_fashion_mnist_signguard_min_max_tau0.60,
+fashion_mnist,signguard,lie,,0,0.6,0.8181,0.0,0.0434,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-13/19-19-15_fashion_mnist_signguard_lie_tau0.60,
+fashion_mnist,signguard,gaussian,,0,0.6,0.7913,0.0,0.3392,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-13/19-41-55_fashion_mnist_signguard_gaussian_tau0.60,
