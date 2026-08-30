@@ -1,0 +1,7 @@
+dataset,defense,attack_mode,decorrelate_cos,assumed_malicious,tau_s_quantile,final_accuracy,asr,fdr,recall,total_convlstm_forwards,mean_ratio_scored,total_convlstm_time_ms,save_path,error
+mnist,multikrum,gaussian,,0,0.6,0.9536,0.0,0.04,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-29/14-45-03_mnist_multikrum_gaussian_tau0.60,
+mnist,multikrum,lie,,0,0.6,0.9577,0.0,0.04,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-29/14-58-19_mnist_multikrum_lie_tau0.60,
+mnist,multikrum,min_max,,0,0.6,0.9514,0.0,0.04,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-29/15-11-32_mnist_multikrum_min_max_tau0.60,
+fashion_mnist,multikrum,gaussian,,0,0.6,0.8006,0.0,0.04,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-29/15-25-35_fashion_mnist_multikrum_gaussian_tau0.60,
+fashion_mnist,multikrum,lie,,0,0.6,0.8097,0.0,0.04,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-29/15-39-38_fashion_mnist_multikrum_lie_tau0.60,
+fashion_mnist,multikrum,min_max,,0,0.6,0.8169,0.0,0.04,1.0,0,nan,nan,/home/tuan/get-local-model-bt-id/rl-flwr/outputs/2026-08-29/15-53-25_fashion_mnist_multikrum_min_max_tau0.60,

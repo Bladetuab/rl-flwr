@@ -22,7 +22,7 @@ import matplotlib.ticker as mticker
 import numpy as np
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-SUMMARY_CSV  = Path("/home/tuan/get-local-model-bt-id/rl-flwr/outputs/sweep_summary_20260507_083113.csv")
+SUMMARY_CSV  = Path("/home/tuan/get-local-model-bt-id/rl-flwr/outputs/sweep_summary_20260826_191104.csv")
 OUT_DIR      = Path("/home/tuan/get-local-model-bt-id/rl-flwr/") / "sweep_figures"
 SUMMARY_JSON = OUT_DIR / "sweep_summary.json"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

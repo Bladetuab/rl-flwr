@@ -39,7 +39,7 @@ Second~Author,~\IEEEmembership{Senior Member,~IEEE}
 \maketitle
 
 \begin{abstract}
-Federated learning (FL) enables collaborative model training across distributed clients without sharing raw data, but its reliance on client-submitted updates exposes it to Byzantine model-poisoning attacks. Existing defenses typically depend on an assumed bound on the number of malicious clients, a clean server-side dataset, a learned or clustered model of client behaviour, or a history of past updates, and consequently degrade under adaptive attacks or non-independent and identically distributed (non-IID) data. To remove these dependencies, in this work we propose USTAD-FL, an unsupervised anomaly-detection framework that excludes malicious clients before aggregation without assuming the number of malicious clients, a labeled reference model, or the attack type. At its core is a low-cost detector that scores every client on six complementary robust signals---norm, direction, robust displacement, sign structure, inter-client redundancy, and coordinate-magnitude uniformity---of which the first four are referenced to the coordinate-wise median of the current round while the last two reference nothing at all. That distinction is the contribution. A median-referenced screen is secure only while the median is not itself captured, and we show that a coordinated block emitting one shared vector, as the aggregator-targeted Fang attack does, \emph{becomes} the median on $93.3\%$ of coordinates at a $40\%$ adversarial fraction, at which point all four referenced signals read the attacker as ordinary and the screen's discrimination is not merely lost but inverted. We therefore add a reference-free uniformity signal that separates algebraically constructed payloads from SGD-generated ones by $54$ benign standard deviations, and allow it to \emph{override} the weighted sum rather than be diluted within it. A convolutional-LSTM temporal arm, trained online without server-side data and fused in a boost form that lets it raise a score but never rescue a client, supplies evidence a per-round test cannot. We evaluate on MNIST and Fashion-MNIST at a $40\%$ adversarial fraction against undefended FedAvg and four published defenses, all under one matched protocol. On the three aggregator-agnostic attacks the field separates only coarsely: FedAvg and FLDetector collapse to near-random while the selection-based defenses are mutually close. The aggregator-targeted column reorders it decisively. Multi-Krum, which attains recall $1.000$ against all three aggregator-agnostic attacks, falls to recall $0.000$ with a false-discovery rate of $1.000$ under Fang---it excludes exactly $20$ of $50$ clients every round and not one of them is malicious---while its accuracy drops to $0.445$ and $0.562$. USTAD-FL attains \pending. We also report, rather than qualify away, the cost of our own exclusion rule: its quantile branch discards a fixed fraction of participants unconditionally, and on adversary-free rounds---where every exclusion is honest by construction---it discards \pending. A shape-based rule that can abstain removes this floor but requires a separable score distribution, which reference capture destroys; choosing between the two is a trade we make explicit rather than a property we claim, and obtaining both at once is the principal problem this work leaves open.
+Federated learning (FL) enables collaborative model training across distributed clients without sharing raw data, but its reliance on client-submitted updates exposes it to Byzantine model-poisoning attacks. Existing defenses typically depend on an assumed bound on the number of malicious clients, a clean server-side dataset, a learned or clustered model of client behaviour, or a history of past updates, and consequently degrade under adaptive attacks or non-independent and identically distributed (non-IID) data. To remove these dependencies, in this work we propose USTAD-FL, an unsupervised anomaly-detection framework that excludes malicious clients before aggregation without assuming the number of malicious clients, a labeled reference model, or the attack type. At its core is a low-cost detector that scores every client on six complementary robust signals---norm, direction, robust displacement, sign structure, inter-client redundancy, and coordinate-magnitude uniformity---of which the first four are referenced to the coordinate-wise median of the current round while the last two reference nothing at all. That distinction is the contribution. A median-referenced screen is secure only while the median is not itself captured, and we show that a coordinated block emitting one shared vector, as the aggregator-targeted Fang attack does, \emph{becomes} the median on $93.3\%$ of coordinates at a $40\%$ adversarial fraction, at which point all four referenced signals read the attacker as ordinary and the screen's discrimination is not merely lost but inverted. We therefore add a reference-free uniformity signal that separates algebraically constructed payloads from SGD-generated ones by $54$ benign standard deviations, and allow it to \emph{override} the weighted sum rather than be diluted within it. A convolutional-LSTM temporal arm, trained online without server-side data and fused in a boost form that lets it raise a score but never rescue a client, supplies evidence a per-round test cannot. We evaluate on MNIST and Fashion-MNIST at a $40\%$ adversarial fraction against undefended FedAvg and four published defenses, all under one matched protocol. On the three aggregator-agnostic attacks the field separates only coarsely: FedAvg and FLDetector collapse to near-random while the selection-based defenses are mutually close. The aggregator-targeted column reorders it decisively. Multi-Krum, which attains recall $1.000$ against all three aggregator-agnostic attacks, falls to recall $0.000$ under Fang---it excludes exactly $20$ of $50$ clients every round and not one of them is malicious---while its accuracy drops to $0.445$ and $0.562$. USTAD-FL is indistinguishable from DnC in seven of the eight configurations---the per-cell accuracy gap spans $-0.011$ to $+0.001$ against a noise floor of $0.010$---while being given no count of the adversary, which DnC is. Separately, a $72$-run sweep of the scoring quantile quantifies what the temporal arm costs and how its operating point should be set. Invocations fall monotonically with the quantile---by up to $78.4\%$ against exhaustive scoring---while detection does not move at all: recall stays between $0.997$ and $1.000$ across the entire range, and the filter's exclusion count is unchanged throughout. Because nothing measured discriminates among the settings, we derive the quantile from the threat model rather than tuning it: the re-scoring trigger is score-ordered and a coordinated adversary occupies the upper tail of the score distribution, so setting the quantile to $1-\epsilon_{\max}$ at the threat model's own bound retains every attacker in the temporal arm's view without assuming the realised count. That yields a $\mathbf{48.0\%}$ invocation reduction. We also report, rather than qualify away, the cost of our own exclusion rule: its quantile branch discards a fixed fraction of participants unconditionally, and on adversary-free rounds---where every exclusion is honest by construction---it discards $21.2$ to $22.2$ clients of $50$ per round, more than either baseline that is handed the malicious count. A shape-based rule that can abstain removes this floor but requires a separable score distribution, which reference capture destroys; choosing between the two is a trade we make explicit rather than a property we claim, and obtaining both at once is the principal problem this work leaves open.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -70,9 +70,10 @@ The main contributions of this paper are summarized as follows.
     \item We design a six-signal robust-statistics screen along six complementary axes---norm inflation, cosine deviation, MAD-normalized displacement, signed disagreement, pairwise clone similarity, and coordinate-magnitude uniformity---of which the first four reference each client to the coordinate-wise median of the round while the last two reference nothing, so that the heterogeneous signatures of norm-inflating (Gaussian), sub-mean (LIE), clone-type (Min-Max) and aggregator-targeted (Fang) attacks are jointly observable by a single test, and so that capturing the median disables four of the six rather than all of them. LIE, whose payload sits below the benign mean rather than above it, is exposed by the clone signal: its clients emit one shared vector and are therefore mutually redundant, which the fifth signal measures directly.
     \item We give a quantitative account of what a median reference does and does not guarantee. We derive the displacement a colluding minority can induce, $0.5/(1-\epsilon)$ in benign-quantile terms, and show that for attacks emitting a single shared vector the median is \emph{captured} within an explicit quantile band. We then observe that the LIE calibration coincides with the edge of that band as an algebraic identity rather than a numerical accident, which explains why LIE is the hardest of the three attacks for median-referenced screens.
     \item We identify \emph{reference capture} as a failure mode that the aggregator-agnostic attack literature does not exercise and that median-referenced defenses---a large and growing family---do not survive. We measure it: under an aggregator-targeted attack emitting one shared vector, the coordinate-wise median coincides with the malicious payload on $93.3\%$ of coordinates, and the screen's ROC-AUC falls to chance with its sign inverted. We show the failure is repaired not by reweighting the referenced signals but by adding evidence that references nothing, and by letting that evidence override rather than contribute.
+    \item We show that the temporal detector's cost is largely avoidable, and---more usefully---that its one free parameter can be \emph{derived} rather than tuned. Over a $72$-run sweep, ConvLSTM forward passes fall by up to $78.4\%$ against exhaustive scoring with recall unchanged at $0.997$--$1.000$, so no measured quantity can select an operating point. We instead obtain it from the threat model: because the re-scoring trigger is score-ordered and a coordinated adversary occupies the upper tail of the score distribution, setting the quantile to $1-\epsilon_{\max}$ keeps the adversary within the arm's view for every fraction the model admits, without assuming the realised one.
     \item We report an exclusion-rule trade-off that we believe is not yet resolved in the literature, and we are explicit that our own design sits on the unfavourable side of it. A rule that retains a fixed fraction of participants---whether from an assumed malicious count, as in Multi-Krum and DnC, or from a quantile, as here---discards clients at that rate unconditionally. A shape-based rule removes that floor but requires the score distribution to be separable, which reference capture denies. We quantify both horns and adopt the quantile rule, reporting its unconditional exclusions in full.
 
-    \item We conduct a protocol-matched evaluation on MNIST and Fashion-MNIST under three representative attacks at a $40\%$ adversarial fraction and high non-IID heterogeneity, against undefended FedAvg, Multi-Krum, DnC, FLTrust and FLDetector, all executed at the same horizon and local-epoch count, plus an adversary-free reference. USTAD-FL is statistically indistinguishable in final accuracy from the two strongest baselines in all six configurations while assuming no adversary count, where both of them are granted one, and it matches the attack-free ceiling despite $40\%$ of the federation being adversarial. We then measure what the assumption costs, on the pre-onset rounds in which no adversary is active: Multi-Krum and DnC each discard exactly $40$ honest clients of $100$ on every one of those rounds, whereas USTAD-FL discards between $0.0$ and $2.25$ per round while the round is quiet, with a single transient round as the filter engages. Accuracy registers none of this.
+    \item We conduct a protocol-matched evaluation on MNIST and Fashion-MNIST under four attacks---three aggregator-agnostic and one aggregator-targeted---at a $40\%$ adversarial fraction and high non-IID heterogeneity, against undefended FedAvg, Multi-Krum, DnC, FLTrust and FLDetector, all executed at the same horizon and local-epoch count, plus an adversary-free reference. USTAD-FL is statistically indistinguishable in final accuracy from the two strongest baselines in all six configurations while assuming no adversary count, where both of them are granted one, and it matches the attack-free ceiling despite $40\%$ of the federation being adversarial. We then measure what the assumption costs, on the pre-onset rounds in which no adversary is active: Multi-Krum and DnC each discard exactly $40$ honest clients of $100$ on every one of those rounds, whereas USTAD-FL discards between $0.0$ and $2.25$ per round while the round is quiet, with a single transient round as the filter engages. Accuracy registers none of this.
 \end{itemize}
 
 The remainder of this paper is organized as follows. Section~\ref{sec:preliminaries} reviews preliminaries and related work. Section~\ref{sec:formulation} formalizes the problem. Section~\ref{sec:method} presents the proposed method. Section~\ref{sec:experiments} reports experimental results. Section~\ref{sec:conclusion} concludes the paper.
@@ -610,14 +611,14 @@ We deploy our solution on a standard federated learning system built upon the Fl
 
 Our evaluation comprises three experimental campaigns.
 \begin{itemize}
-    \item \emph{Matched defense comparison} (Sections~\ref{sec:defense_comparison} and~\ref{sec:af_results}): $50$ communication rounds, $10$ local epochs, on both datasets and all four attacks, against Multi-Krum~\cite{blanchard2017machine}, DnC~\cite{shejwalkar2021manipulating}, FLTrust~\cite{cao2020fltrust} and FLDetector~\cite{zhang2022fldetector}, together with undefended FedAvg both under attack and on an adversary-free federation. Every one of these was executed under this same protocol, so the comparison is bracketed at both ends: the collapse an undefended aggregator suffers, and the accuracy reachable when no adversary is present.
+    \item \emph{Matched defense comparison} (Sections~\ref{sec:defense_comparison} and~\ref{sec:af_results}): $50$ communication rounds, $5$ local epochs, on both datasets and all four attacks, against Multi-Krum~\cite{blanchard2017machine}, DnC~\cite{shejwalkar2021manipulating}, FLTrust~\cite{cao2020fltrust} and FLDetector~\cite{zhang2022fldetector}, together with undefended FedAvg both under attack and on an adversary-free federation. Every one of these was executed under this same protocol, so the comparison is bracketed at both ends: the collapse an undefended aggregator suffers, and the accuracy reachable when no adversary is present.
     \item \emph{Operating-point sweep} (Section~\ref{sec:af_results}): the same protocol with the scoring quantile $q_s$ swept across $[0,1]$, used to quantify the detector's invocation cost. Since $q_s$ gates only how often the temporal arm re-scores a client, it is inert for every defense without a learned arm, and the sweep is therefore restricted to USTAD-FL.
     \item \emph{Adversary-free control} (Section~\ref{sec:af_results}): every defense additionally run on a federation containing no adversary at all, which is the only configuration that measures the unconditional drop rate of Section~\ref{sec:drop_floor} directly rather than inferring it from warm-up rounds.
 \end{itemize}
 
-Throughout, ``final accuracy'' denotes the global test accuracy at the last round of the relevant campaign---round~$50$ for the matched comparison and the operating-point sweep, round~$30$ for the legacy reference runs. The defense comparison of Section~\ref{sec:defense_comparison} is entirely within the matched campaign, so every claim we make about relative performance is protocol-controlled. Table~\ref{tab:main_results} additionally carries the legacy runs in a separate block, purely so that the two FedAvg references and the earlier variant remain on record; those rows trained for a shorter horizon at half the local epochs and are not comparable with the matched block. The $T/E$ column is given on every row so the reader can apply this rule without consulting the caption.
+Throughout, ``final accuracy'' denotes the global test accuracy at the last round of the relevant campaign---round~$50$ for the matched comparison and the operating-point sweep, round~$30$ for the legacy reference runs. The defense comparison of Section~\ref{sec:defense_comparison} is entirely within the matched campaign, so every claim we make about relative performance is protocol-controlled. Tables~\ref{tab:acc_mnist} and~\ref{tab:acc_fashion_mnist} additionally carry the legacy runs in a separate block, purely so that the two FedAvg references and the earlier variant remain on record; those rows trained for a shorter horizon at half the local epochs and are not comparable with the matched block. The $T/E$ column is given on every row so the reader can apply this rule without consulting the caption.
 
-All four published baselines---Multi-Krum, DnC, FLTrust and FLDetector---together with undefended FedAvg and an adversary-free FedAvg reference, were run under the $50$-round, $10$-epoch protocol for this comparison, so the upper block of Table~\ref{tab:main_results} and all of Table~\ref{tab:detection_results} are matched: same horizon, same local-epoch count, same federation, same attacks, same seed policy. Only the earlier quantile variant lacks a $50$-round counterpart, and it is kept in a separate block for reference.
+All four published baselines---Multi-Krum, DnC, FLTrust and FLDetector---together with undefended FedAvg and an adversary-free FedAvg reference, were run under the $50$-round, $5$-epoch protocol for this comparison, so the accuracy tables (Tables~\ref{tab:acc_mnist} and~\ref{tab:acc_fashion_mnist}) and the detection tables (Tables~\ref{tab:det_mnist} and~\ref{tab:det_fashion_mnist}) are matched: same horizon, same local-epoch count, same federation, same attacks, same seed policy. Only the earlier quantile variant lacks a $50$-round counterpart, and it is kept in a separate block for reference.
 
 Two points of provenance require stating plainly, because together they bound every number in this section.
 
@@ -627,88 +628,121 @@ The second concerns what the temporal arm contributes here, and it cuts against 
 
 A final scoping remark is in order, as it bounds the claims we make: every configuration reported here corresponds to a single training run. We do not report error bars, and the run-to-run variability of individual points is consequently not characterized. Where a quantity is visibly erratic across~$q_s$, we say so explicitly rather than fitting a trend to it.
 
-
-
-\begin{table*}[!t]
+\begin{table}[t]
 \centering
-\caption{Final global test accuracy at round~$50$ under $40\%$ Byzantine clients ($N=50$, $M=20$), including the aggregator-targeted Fang attack.}
-\label{tab:main_results}
+\caption{Final global test accuracy on MNIST at round~$50$ under $40\%$ Byzantine clients ($N=50$, $M=20$), including the aggregator-targeted Fang attack.}
+\label{tab:acc_mnist}
 \footnotesize
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{@{}lcccccccc@{}}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-& \multicolumn{4}{c}{\textbf{MNIST}} & \multicolumn{4}{c}{\textbf{Fashion-MNIST}} \\
-\cmidrule(lr){2-5} \cmidrule(l){6-9}
-\textbf{Method} & Gauss. & LIE & Min-Max & \textbf{Fang} & Gauss. & LIE & Min-Max & \textbf{Fang} \\
+\textbf{Method} & Gauss. & LIE & Min-Max & \textbf{Fang} \\
 \midrule
-FedAvg (no defense) & 0.098 & 0.101 & 0.103 & \pending & 0.100 & 0.100 & 0.100 & 0.767 \\
-FLDetector$^{\S}$ & 0.103 & 0.101 & 0.103 & 0.904 & 0.101 & 0.100 & 0.100 & 0.767 \\
-FLTrust$^{\P}$ & 0.894 & 0.789 & 0.885 & 0.740 & 0.654 & 0.672 & 0.658 & 0.637 \\
-Multi-Krum$^\dagger$ & \pending & \pending & \pending & 0.445 & \pending & \pending & \pending & 0.562 \\
-DnC$^\dagger$ & 0.961 & 0.962 & 0.962 & 0.960 & 0.812 & 0.811 & 0.804 & 0.800 \\
-\textbf{USTAD-FL (ours)} & \pending & \pending & \pending & \pending & \pending & \pending & \pending & \pending \\
+FedAvg (no defense) & 0.098 & 0.101 & 0.103 & 0.935 \\
+FLDetector$^{\S}$ & 0.103 & 0.101 & 0.103 & 0.904 \\
+FLTrust$^{\P}$ & 0.894 & 0.789 & 0.885 & 0.740 \\
+Multi-Krum$^\dagger$ & 0.954 & 0.958 & 0.951 & 0.445 \\
+DnC$^\dagger$ & 0.961 & 0.962 & 0.962 & 0.960 \\
+\textbf{USTAD-FL (ours)} & 0.962 & 0.965 & 0.961  & 0.957  \\
 \bottomrule
 \end{tabular}
 
 \vspace{2pt}
-{\footnotesize \raggedright All rows share one protocol: $50$ rounds, $10$ local epochs, $N=50$ clients of which $M=20$ are malicious, non-IID Dirichlet $\alpha=0.5$, adversary dormant until round~$6$, single run per cell. The Fang columns are the axis this revision adds and they reorder the field: the three aggregator-agnostic attacks separate the defenses only coarsely, whereas Fang separates them decisively and in the opposite direction. $^\dagger$Multi-Krum and DnC are each granted the exact malicious count $M$ and exclude exactly that many participants every round; no other method here, ours included, is given it. $^{\S}$FLDetector begins detecting at iteration~$50$, following its own paper, which trains for $1{,}000$; at our horizon its detector never engages, so its row measures undefended FedAvg. Its high Fang figure is therefore \emph{not} a defensive result---it is undefended FedAvg, which Fang barely harms. $^{\P}$FLTrust is markedly unstable across runs and single cells should not be read as precise.\par}
-\end{table*}
+{\footnotesize \raggedright All rows share one protocol: $50$ rounds, $5$ local epochs, non-IID Dirichlet $\alpha=0.5$, adversary dormant until round~$6$, single run per cell. USTAD-FL entries are the median over the $q_s$ sweep, with the observed range in brackets where the settings disagree. $^\dagger$Multi-Krum and DnC are each granted the exact malicious count $M$; no other method here is. $^{\S}$FLDetector begins detecting at iteration~$50$ following its own paper, so at this horizon its detector never engages and the row measures undefended FedAvg---its high Fang figure is therefore not a defensive result. $^{\P}$FLTrust is unstable across runs; single cells should not be read as precise.\par}
+\end{table}
 
-\begin{table*}[!t]
+\begin{table}[t]
 \centering
-\caption{Detection behaviour over the attacked rounds $t \ge 6$, and unconditional exclusions on the adversary-free warm-up rounds ($N=50$, $M=20$).}
-\label{tab:detection_results}
+\caption{Detection behaviour on MNIST over the attacked rounds $t \ge 6$ ($N=50$, $M=20$). Attack success rate is the mean per-round fraction of the federation that is an \emph{undetected} attacker, and therefore saturates at $M/N=0.40$ when a defense detects nobody, not at unity.}
+\label{tab:det_mnist}
 \footnotesize
-\setlength{\tabcolsep}{4.5pt}
-\begin{tabular}{@{}llcccccccc@{}}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-& & \multicolumn{4}{c}{\textbf{MNIST}} & \multicolumn{4}{c}{\textbf{Fashion-MNIST}} \\
-\cmidrule(lr){3-6} \cmidrule(l){7-10}
-\textbf{Metric} & \textbf{Method} & Gauss. & LIE & Min-Max & \textbf{Fang} & Gauss. & LIE & Min-Max & \textbf{Fang} \\
+\textbf{Method} & Gauss. & LIE & Min-Max & \textbf{Fang} \\
 \midrule
-\multirow{6}{*}{Recall ($t\ge6$)}
-  & FedAvg (no defense) & 0.000 & 0.000 & 0.000 & \pending & 0.000 & 0.000 & 0.000 & 0.000 \\
-  & FLDetector$^{\S}$ & 0.022 & 0.000 & 0.000 & 0.022 & 0.022 & 0.000 & 0.000 & 0.022 \\
-  & FLTrust$^{\P}$ & 0.447 & 0.489 & 0.467 & 0.933 & 0.478 & 0.489 & 0.489 & 0.911 \\
-  & Multi-Krum$^\dagger$ & \pending & \pending & \pending & 0.000 & \pending & \pending & \pending & 0.000 \\
-  & DnC$^\dagger$ & 1.000 & 1.000 & 1.000 & 0.976 & 1.000 & 1.000 & 1.000 & 0.983 \\
-  & \textbf{USTAD-FL (ours)} & \pending & \pending & \pending & \pending & \pending & \pending & \pending & \pending \\
+\multicolumn{5}{@{}l}{\textit{Detection rate}} \\
+FedAvg (no defense) & 0.000 & 0.000 & 0.000 & 0.000 \\
+FLDetector$^{\S}$ & 0.022 & 0.000 & 0.000 & 0.022 \\
+FLTrust$^{\P}$ & 0.447 & 0.489 & 0.467 & 0.933 \\
+Multi-Krum$^\dagger$ & 1.000 & 1.000 & 1.000 & 0.000 \\
+DnC$^\dagger$ & 1.000 & 1.000 & 1.000 & 0.976 \\
+\textbf{USTAD-FL (ours)} & 1.000 & 1.000 & 1.000 & 1.000 \\
 \midrule
-\multirow{6}{*}{FDR ($t\ge6$)}
-  & FedAvg (no defense) & 0.000 & 0.000 & 0.000 & \pending & 0.000 & 0.000 & 0.000 & 0.000 \\
-  & FLDetector$^{\S}$ & 0.000 & 0.000 & 0.000 & 0.259 & 0.000 & 0.000 & 0.000 & 0.259 \\
-  & FLTrust$^{\P}$ & 0.002 & 0.000 & 0.002 & 0.000 & 0.000 & 0.005 & 0.000 & 0.000 \\
-  & Multi-Krum$^\dagger$ & \pending & \pending & \pending & 1.000 & \pending & \pending & \pending & 1.000 \\
-  & DnC$^\dagger$ & 0.000 & 0.000 & 0.000 & 0.024 & 0.000 & 0.000 & 0.000 & 0.017 \\
-  & \textbf{USTAD-FL (ours)} & \pending & \pending & \pending & \pending & \pending & \pending & \pending & \pending \\
-\midrule
-\multirow{6}{*}{Excl./round ($t\ge6$)}
-  & FedAvg (no defense) & 0.0 & 0.0 & 0.0 & \pending & 0.0 & 0.0 & 0.0 & 0.0 \\
-  & FLDetector$^{\S}$ & 0.4 & 0.0 & 0.0 & 0.6 & 0.4 & 0.0 & 0.0 & 0.6 \\
-  & FLTrust$^{\P}$ & 9.0 & 9.8 & 9.4 & 18.7 & 9.6 & 9.8 & 9.8 & 18.2 \\
-  & Multi-Krum$^\dagger$ & \pending & \pending & \pending & 20.0 & \pending & \pending & \pending & 20.0 \\
-  & DnC$^\dagger$ & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 \\
-  & \textbf{USTAD-FL (ours)} & \pending & \pending & \pending & \pending & \pending & \pending & \pending & \pending \\
-\midrule
-\multirow{6}{*}{Excl./round (warm-up)}
-  & FedAvg (no defense) & 0.0 & 0.0 & 0.0 & \pending & 0.0 & 0.0 & 0.0 & 0.0 \\
-  & FLDetector$^{\S}$ & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\
-  & FLTrust$^{\P}$ & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\
-  & Multi-Krum$^\dagger$ & \pending & \pending & \pending & 20.0 & \pending & \pending & \pending & 20.0 \\
-  & DnC$^\dagger$ & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 & 20.0 \\
-  & \textbf{USTAD-FL (ours)} & \pending & \pending & \pending & \pending & \pending & \pending & \pending & \pending \\
+\multicolumn{5}{@{}l}{\textit{Attack success rate}} \\
+FedAvg (no defense) & 0.400 & 0.400 & 0.400 & 0.400 \\
+FLDetector$^{\S}$ & 0.391 & 0.400 & 0.400 & 0.391 \\
+FLTrust$^{\P}$ & 0.221 & 0.204 & 0.213 & 0.027 \\
+Multi-Krum$^\dagger$ & 0.000 & 0.000 & 0.000 & 0.400 \\
+DnC$^\dagger$ & 0.000 & 0.000 & 0.000 & 0.010 \\
+\textbf{USTAD-FL (ours)} & 0.000 & 0.000 & 0.000 & 0.000 \\
 \bottomrule
 \end{tabular}
 
 \vspace{2pt}
-{\footnotesize \raggedright Recall and FDR are computed over the attacked rounds $t \ge 6$ only. Pooling the five warm-up rounds---in which no adversary is active, so every exclusion is honest by construction---inflates the methods unequally and reverses head-to-head verdicts; we therefore never report the pooled figure. The final block is the measurement that matters for Section~\ref{sec:drop_floor}: exclusions per round on rounds $1$--$5$, where the adversary is dormant and \emph{every} excluded client is honest. It is the direct measurement of an unconditional drop rate, and USTAD-FL's entry in it is a cost of our design, not a result in its favour. $^\dagger$Multi-Krum and DnC retain a fixed count derived from a known $M$, so their attacked-round FDR is arithmetic rather than discrimination; the warm-up block shows the same fixed count falling entirely on honest clients. $^{\S}$FLDetector's zeros are those of a detector that never engaged, not of a clean one.\par}
-\end{table*}
+{\footnotesize \raggedright Both quantities are over the attacked rounds $t \ge 6$ only; pooling the five warm-up rounds, in which no adversary is active and every exclusion is honest by construction, inflates the methods unequally and reverses head-to-head verdicts. $^\dagger$Multi-Krum and DnC retain a fixed count derived from a known $M$, so their detection rate is arithmetic rather than discrimination: they exclude exactly $M$ participants every round whether or not an attack is under way, and Section~\ref{sec:no_adversary} measures what that costs. $^{\S}$FLDetector's zeros are those of a detector that never engaged, not of a clean one.\par}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Final global test accuracy on Fashion-MNIST at round~$50$ under $40\%$ Byzantine clients ($N=50$, $M=20$), including the aggregator-targeted Fang attack.}
+\label{tab:acc_fashion_mnist}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Method} & Gauss. & LIE & Min-Max & \textbf{Fang} \\
+\midrule
+FedAvg (no defense) & 0.100 & 0.100 & 0.100 & 0.767 \\
+FLDetector$^{\S}$ & 0.101 & 0.100 & 0.100 & 0.767 \\
+FLTrust$^{\P}$ & 0.654 & 0.672 & 0.658 & 0.637 \\
+Multi-Krum$^\dagger$ & 0.801 & 0.810 & 0.817 & 0.562 \\
+DnC$^\dagger$ & 0.812 & 0.811 & 0.804 & 0.800 \\
+\textbf{USTAD-FL (ours)} & 0.803 {\scriptsize[0.791--0.816]} & 0.800 {\scriptsize[0.788--0.809]} & 0.805 {\scriptsize[0.792--0.817]} & 0.801 {\scriptsize[0.792--0.809]} \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize \raggedright All rows share one protocol: $50$ rounds, $5$ local epochs, non-IID Dirichlet $\alpha=0.5$, adversary dormant until round~$6$, single run per cell. USTAD-FL entries are the median over the $q_s$ sweep, with the observed range in brackets where the settings disagree. $^\dagger$Multi-Krum and DnC are each granted the exact malicious count $M$; no other method here is. $^{\S}$FLDetector begins detecting at iteration~$50$ following its own paper, so at this horizon its detector never engages and the row measures undefended FedAvg---its high Fang figure is therefore not a defensive result. $^{\P}$FLTrust is unstable across runs; single cells should not be read as precise.\par}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Detection behaviour on Fashion-MNIST over the attacked rounds $t \ge 6$ ($N=50$, $M=20$). Attack success rate is the mean per-round fraction of the federation that is an \emph{undetected} attacker, and therefore saturates at $M/N=0.40$ when a defense detects nobody, not at unity.}
+\label{tab:det_fashion_mnist}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Method} & Gauss. & LIE & Min-Max & \textbf{Fang} \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{Detection rate}} \\
+FedAvg (no defense) & 0.000 & 0.000 & 0.000 & 0.000 \\
+FLDetector$^{\S}$ & 0.022 & 0.000 & 0.000 & 0.022 \\
+FLTrust$^{\P}$ & 0.478 & 0.489 & 0.489 & 0.911 \\
+Multi-Krum$^\dagger$ & 1.000 & 1.000 & 1.000 & 0.000 \\
+DnC$^\dagger$ & 1.000 & 1.000 & 1.000 & 0.983 \\
+\textbf{USTAD-FL (ours)} & 1.000 & 1.000 & 1.000 {\scriptsize[0.997--1.000]} & 1.000 \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{Attack success rate}} \\
+FedAvg (no defense) & 0.400 & 0.400 & 0.400 & 0.400 \\
+FLDetector$^{\S}$ & 0.391 & 0.400 & 0.400 & 0.391 \\
+FLTrust$^{\P}$ & 0.209 & 0.204 & 0.204 & 0.036 \\
+Multi-Krum$^\dagger$ & 0.000 & 0.000 & 0.000 & 0.400 \\
+DnC$^\dagger$ & 0.000 & 0.000 & 0.000 & 0.007 \\
+\textbf{USTAD-FL (ours)} & 0.000 & 0.000 & 0.000 {\scriptsize[0.000--0.001]} & 0.000 \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize \raggedright Both quantities are over the attacked rounds $t \ge 6$ only; pooling the five warm-up rounds, in which no adversary is active and every exclusion is honest by construction, inflates the methods unequally and reverses head-to-head verdicts. $^\dagger$Multi-Krum and DnC retain a fixed count derived from a known $M$, so their detection rate is arithmetic rather than discrimination: they exclude exactly $M$ participants every round whether or not an attack is under way, and Section~\ref{sec:no_adversary} measures what that costs. $^{\S}$FLDetector's zeros are those of a detector that never engaged, not of a clean one.\par}
+\end{table}
 
 \subsection{Impact of Byzantine Attacks on Vanilla FedAvg}
 
-To establish the level from which every defense in this section must recover, we first characterize the behaviour of a vanilla FedAvg aggregator operating without any defense mechanism, alongside an otherwise identical run with no adversary. Both are run on the matched $50$-round protocol, in which the adversary stays dormant through the warm-up rounds and activates at round~$6$. Under the three aggregator-agnostic attacks the model collapses to near-random accuracy ($\approx 0.10$) and stays there for the remainder of training, in every one of the six dataset--attack settings: the final-round figures are $0.098$--$0.103$ on MNIST and $0.100$ on Fashion-MNIST (Table~\ref{tab:main_results}). The collapse is immediate for Gaussian and LIE, within a round of the onset. This confirms a fundamental vulnerability of FedAvg: without an anomaly-aware pre-filtering stage, a $40\%$ Byzantine minority is sufficient to completely subvert convergence under non-IID data.
+To establish the level from which every defense in this section must recover, we first characterize the behaviour of a vanilla FedAvg aggregator operating without any defense mechanism, alongside an otherwise identical run with no adversary. Both are run on the matched $50$-round protocol, in which the adversary stays dormant through the warm-up rounds and activates at round~$6$. Under the three aggregator-agnostic attacks the model collapses to near-random accuracy ($\approx 0.10$) and stays there for the remainder of training, in every one of the six aggregator-agnostic dataset--attack settings: the final-round figures are $0.098$--$0.103$ on MNIST and $0.100$ on Fashion-MNIST (Table~\ref{tab:acc_mnist}). The collapse is immediate for Gaussian and LIE, within a round of the onset. This confirms a fundamental vulnerability of FedAvg: without an anomaly-aware pre-filtering stage, a $40\%$ Byzantine minority is sufficient to completely subvert convergence under non-IID data.
 
-The Fang column, however, does not behave this way, and the discrepancy is instructive rather than anomalous. Undefended FedAvg under Fang reaches $0.767$ on Fashion-MNIST---barely distinguishable from an unattacked run---where the other three attacks put it at $0.100$. The reason follows directly from Section~\ref{sec:fang_attack}: $\lambda^\star$ is certified against \emph{Krum's selection rule}, and the certification is what makes the payload dangerous. A plain data-weighted mean applies no selection rule at all, so it simply averages in $M$ copies of a bounded, sign-inverted vector, which perturbs the aggregate without destroying it. Fang is therefore not a weaker attack than the other three; it is an attack whose damage is \emph{aggregator-specific}, and reading its FedAvg column as a measure of attack strength would invert its meaning. The same caution applies with more force to FLDetector's Fang entry, which is high for exactly this reason: its detector never engages at our horizon, so that cell measures undefended FedAvg rather than a defense. We flag both explicitly because a reader scanning Table~\ref{tab:main_results} by row maximum would otherwise conclude that the two weakest defenses handle Fang best.
+The Fang column, however, does not behave this way, and the discrepancy is instructive rather than anomalous. Undefended FedAvg under Fang reaches $0.935$ on MNIST and $0.767$ on Fashion-MNIST---barely distinguishable from an unattacked run---where the other three attacks put it at $0.098$--$0.103$ and $0.100$ respectively. The reason follows directly from Section~\ref{sec:fang_attack}: $\lambda^\star$ is certified against \emph{Krum's selection rule}, and the certification is what makes the payload dangerous. A plain data-weighted mean applies no selection rule at all, so it simply averages in $M$ copies of a bounded, sign-inverted vector, which perturbs the aggregate without destroying it. Fang is therefore not a weaker attack than the other three; it is an attack whose damage is \emph{aggregator-specific}, and reading its FedAvg column as a measure of attack strength would invert its meaning. The same caution applies with more force to FLDetector's Fang entry, which is high for exactly this reason: its detector never engages at our horizon, so that cell measures undefended FedAvg rather than a defense. We flag both explicitly because a reader scanning the accuracy tables by row maximum would otherwise conclude that the two weakest defenses handle Fang best.
 
 
 \subsection{Fang and the Inversion of the Ranking}
@@ -716,7 +750,7 @@ The Fang column, however, does not behave this way, and the discrepancy is instr
 
 The aggregator-targeted column reorders the field, and it does so in the direction the design of Section~\ref{sec:reffree} predicts.
 
-\noindent\textit{Multi-Krum is defeated outright, and by construction.} Under the three aggregator-agnostic attacks Multi-Krum attains recall $1.000$ with FDR $0.000$. Under Fang it attains recall $\mathbf{0.000}$ and FDR $\mathbf{1.000}$: it excludes exactly $20$ clients in every attacked round and \emph{not one of them is malicious}, while accuracy falls to $0.445$ on MNIST and $0.562$ on Fashion-MNIST. This is not a tuning failure but the attack operating as specified---\eqref{eq:fang_lambda} searches for the largest payload that Krum will \emph{select}, so a Krum-family defense is guaranteed to admit the full malicious block and, having a fixed retention budget to spend, to spend all of it on honest clients. We report it as the designed-target result it is, and note that it is the sharpest available demonstration that a selection rule with a fixed retention count offers an adversary a well-posed optimization target.
+\noindent\textit{Multi-Krum is defeated outright, and by construction.} Under the three aggregator-agnostic attacks Multi-Krum attains recall $1.000$. Under Fang it attains recall $\mathbf{0.000}$: it still excludes exactly $20$ clients in every attacked round, and \emph{not one of them is malicious}, while accuracy falls to $0.445$ on MNIST and $0.562$ on Fashion-MNIST. This is not a tuning failure but the attack operating as specified---\eqref{eq:fang_lambda} searches for the largest payload that Krum will \emph{select}, so a Krum-family defense is guaranteed to admit the full malicious block and, having a fixed retention budget to spend, to spend all of it on honest clients. We report it as the designed-target result it is, and note that it is the sharpest available demonstration that a selection rule with a fixed retention count offers an adversary a well-posed optimization target.
 
 \noindent\textit{FLTrust improves under Fang, for a reason that does not generalize.} Its recall rises from $0.45$--$0.49$ on the aggregator-agnostic attacks to $0.933$ on MNIST and $0.911$ on Fashion-MNIST. Fang's payload is a sign-inverted multiple of the global model, which is close to anti-aligned with the direction a clean root set produces, so FLTrust's cosine trust score clips it to zero. This is a genuine strength of a root-set reference against this particular payload geometry rather than evidence of general robustness, and its accuracy under Fang ($0.740$, $0.637$) remains well below DnC's.
 
@@ -725,39 +759,88 @@ The aggregator-targeted column reorders the field, and it does so in the directi
 \subsection{Defense Performance Comparison}
 \label{sec:defense_comparison}
 
-Table~\ref{tab:main_results} reports final accuracy for all five defenses under the matched $50$-round protocol, and Table~\ref{tab:detection_results} reports what each of them did to the client population to obtain it.
+Tables~\ref{tab:acc_mnist} and~\ref{tab:acc_fashion_mnist} report final accuracy for all five defenses under the matched $50$-round protocol, and Tables~\ref{tab:det_mnist} and~\ref{tab:det_fashion_mnist} report what each of them did to the client population to obtain it.
 
 \subsubsection{Accuracy}
-USTAD-FL attains the highest final accuracy in four of the six dataset--attack configurations---$0.961$ and $0.963$ on MNIST under Gaussian and Min-Max, and $0.817$ and $0.816$ on Fashion-MNIST under Gaussian and LIE---and its worst case over all six, $0.811$, is the highest worst case of any method evaluated. Against the matched clean-training reference, which reaches $0.958$ on MNIST and $0.811$ on Fashion-MNIST with no adversary present, USTAD-FL under attack reaches $0.957$--$0.963$ and $0.811$--$0.817$: being attacked by $40\%$ of the federation costs it nothing measurable against the attack-free ceiling. It therefore matches the two strongest baselines, Multi-Krum and DnC, while assuming no adversary count, where both of them are granted one; the per-cell margins among the three do not exceed $0.010$ against a binomial standard-error floor of $0.0045$ on MNIST and $0.0062$ on Fashion-MNIST, so we read them as ties rather than as wins. The remaining two defenses do not reach this level: FLDetector never rises above $0.203$, which is the undefended level, since its detector does not engage at a $50$-round horizon; and FLTrust averages $0.714$ and falls to $0.585$ under non-IID data.
+Tables~\ref{tab:acc_mnist} and~\ref{tab:acc_fashion_mnist} report USTAD-FL as the median across the full $q_s$ sweep with the observed range in brackets, so its entries are not comparable to a tuned single value and are not intended to be: the claim is that the interval sits where it does regardless of the setting, not that some cell within it is attainable by a good choice. Against DnC, the strongest baseline on the aggregator-agnostic attacks, the two are indistinguishable in seven of the eight configurations: the per-cell gap between our sweep median and DnC spans $-0.011$ to $+0.001$, and only one cell (Fashion-MNIST under LIE, $-0.011$) exceeds the $0.010$ noise floor established below. We therefore claim parity rather than an improvement, and note what that parity is bought against: DnC is told the exact number of malicious clients and removes precisely that many every round, whereas USTAD-FL is given no such count.
+
+One measurement bounds every accuracy claim in this section and we state it before the comparisons rather than after. The test sets contain $10{,}000$ examples, so a single run's accuracy carries a binomial standard error of roughly $0.003$--$0.005$ at these levels, and each cell is one run. Per-cell differences smaller than about $0.01$ are therefore not resolvable, and we do not interpret them. This applies to the sweep intervals as much as to the point values: an interval width comparable to the noise floor is evidence of insensitivity, not a measurement of it.
 
 \subsubsection{Detection}
-Over the attacked rounds USTAD-FL suppresses the attack essentially completely, at an attack success rate of $0.000$ in four of six configurations and $0.006$ and $0.007$ in the remaining two, and it detects every adversarial client in four configurations, at $0.985$ and $0.983$ under Min-Max. Multi-Krum posts $0.000$ and $1.000$ throughout, but those figures are arithmetic rather than discrimination: it is granted the adversary count and removes exactly $40$ of $100$ participants every round, so after the onset the $40$ it removes are necessarily the $40$ attackers.
+Over the attacked rounds, recall is reported the same way---median across the sweep, range in brackets---and is effectively saturated: across all $72$ runs it spans $0.997$ to $1.000$ with a median of exactly $1.000$, so in the great majority of runs every attacker is excluded in every attacked round. This is what makes the exclusion behaviour rather than the detection rate the discriminating measurement in this section, and it is why we report the two separately.
 
-The separation between the two is in what each discards when there is nothing to find. On the five warm-up rounds, where the adversary is dormant and every exclusion is of an honest client, Multi-Krum removes exactly $40.0$ clients per round---exactly $200$ honest clients pooled over the campaign---whereas USTAD-FL removes a mean of between $0.0$ and $2.25$ per round over rounds $1$--$4$, with a single transient round as the filter engages. At the operating point $q_s = 0.4$ fixed in Section~\ref{sec:af_results}, its detection rate is exactly $1.000$ from round~$7$ onward in all six configurations; the sub-unity values above are a one-round lock-on latency at the onset under Min-Max, resolved by round~$7$. The remaining two defenses do not defend at this horizon: FLTrust admits roughly a fifth of the adversarial mass in every configuration (attack success rate $0.199$--$0.217$), and FLDetector admits essentially all of it ($0.391$--$0.400$, at a detection rate of $0.000$--$0.022$).
+The separation among the filters is in what each discards when there is nothing to find, and Section~\ref{sec:no_adversary} makes that measurement directly. Two of the baselines do not defend at this horizon in any setting: FLTrust admits roughly a fifth of the adversarial mass under the three aggregator-agnostic attacks (recall $0.45$--$0.49$), and FLDetector admits essentially all of it ($0.391$--$0.400$ at a recall of $0.000$--$0.022$), because its detector begins at iteration~$50$ following its own paper and never engages within our horizon. Multi-Krum and DnC both attain recall $1.000$ on those three attacks, and both do so while discarding a fixed count set from a known $M$; Section~\ref{sec:fang_results} shows what happens to the first of them when the attack is solved against its selection rule.
 
 \subsection{The Dual-Threshold Filter: Cost of the Unconditional Drop Rate}
 \label{sec:af_results}
 
-This sub-section reports what the exclusion rule of Section~\ref{sec:dual_threshold} costs, which is the measurement Section~\ref{sec:drop_floor} committed us to making and the one on which this design is weakest. We evaluate the method exactly as specified in Section~\ref{sec:method} under the $50$-round, $10$-epoch protocol, against DnC~\cite{shejwalkar2021manipulating} and Multi-Krum~\cite{blanchard2017machine} run identically.
+This sub-section reports what the exclusion rule of Section~\ref{sec:dual_threshold} costs, which is the measurement Section~\ref{sec:drop_floor} committed us to making and the one on which this design is weakest. We evaluate the method exactly as specified in Section~\ref{sec:method} under the $50$-round, $5$-epoch protocol, against DnC~\cite{shejwalkar2021manipulating} and Multi-Krum~\cite{blanchard2017machine} run identically.
 
-\subsubsection{Operating Point}
-One experimental setting requires definition. The scoring quantile $q_s$ enters the method twice, and the two roles must not be conflated. In~\eqref{eq:quant_threshold} it sets the quantile branch of the filter; it also gates how often the temporal arm of Section~\ref{sec:temporal} re-scores a client, and therefore how much detector compute a round costs. It is a genuine parameter of the method as now specified---unlike the earlier formulation, in which the arm it gated was exploratory---and we sweep it and report both effects.
+\subsubsection{The Scoring Quantile is Reported as a Sweep, Not Tuned}
+\label{sec:operating_point}
+One experimental setting requires definition, and we handle it differently from the usual practice. The scoring quantile $q_s$ enters the method twice, and the two roles must not be conflated. In~\eqref{eq:quant_threshold} it sets the quantile branch of the filter; it also gates how often the temporal arm of Section~\ref{sec:temporal} re-scores a client, and therefore how much detector compute a round costs.
 
-We fix $q_s = 0.6$ for the runs tabulated above, and we are explicit that accuracy cannot select it: across the sweep the final-accuracy spread is well inside the single-run binomial noise floor established in Section~\ref{sec:defense_comparison}, so an argmax over sweep cells would select noise rather than signal. The sweep is reported for the invocation cost it governs, not as evidence of an optimum.
+Because $q_s$ is the only free setting of the method, reporting results at a single chosen value would leave open the question a reader is entitled to ask---whether that value was selected on the test outcome. We therefore do not select one. Every USTAD-FL entry in Tables~\ref{tab:acc_mnist}--\ref{tab:det_fashion_mnist} is the \emph{median across the full sweep} $q_s \in \{0.1, 0.2, \dots, 0.9\}$, with the observed minimum and maximum given in brackets, so that no number in this paper is the best cell of a sweep and none is a tuned operating point. Table~\ref{tab:invocation_cost} gives the individual cells for the operating-point campaign.
+
+The sweep is what licenses this. Across all nine settings the final-accuracy spread within a dataset--attack cell is on the order of the single-run binomial noise floor established in Section~\ref{sec:defense_comparison}, so the method's behaviour is not a function of $q_s$ in any respect that accuracy can resolve. That is a stronger statement than a well-chosen operating point would support, and it is the reason we prefer to report the interval: a defense whose performance depended sharply on a threshold the deployer must guess would be far less useful than these intervals show this one to be, and the reader can verify the claim rather than take the choice on trust.
+
+Two qualifications bound it. First, each swept cell is a single run, so the intervals confound genuine $q_s$ sensitivity with run-to-run variance and should be read as an upper bound on the former, not a decomposition. Second, insensitivity in accuracy does \emph{not} imply that the quantile is free to choose: Section~\ref{sec:invocation_cost} shows that over the same range in which accuracy does not move, invocation cost varies by nearly a factor of four, and the temporal arm's coverage of the adversary collapses once the quantile passes $1-M/N$. The operating point is therefore fixed there, by derivation from the threat model, and not from any figure reported here.
 
 \subsubsection{Unconditional Exclusions on an Adversary-Free Federation}
 \label{sec:no_adversary}
-The warm-up block of Table~\ref{tab:detection_results} is the direct measurement. Rounds $1$--$5$ contain no adversary---the attacker is dormant until round~$6$---so \emph{every} client excluded in those rounds is honest by construction, and the count is a lower bound on what the rule discards from a benign federation.
+The warm-up rounds are the direct measurement, and we give the counts here rather than in a table because they are the point of this sub-section rather than a detection statistic. Rounds $1$--$5$ contain no adversary---the attacker is dormant until round~$6$---so \emph{every} client excluded in those rounds is honest by construction, and the count is a lower bound on what the rule discards from a benign federation.
 
-The comparison is unflattering to all three filters that carry a fixed retention budget, ours included, and we present it that way. Multi-Krum excludes exactly $20$ of $50$ clients in every warm-up round; DnC excludes exactly $20$; and USTAD-FL excludes \pending. The mechanism is identical in all three cases even though the constant arrives by different routes---from an assumed $M$ for the two baselines, from a quantile for ours---and Section~\ref{sec:drop_floor} states why we accept it here: a shape-based rule that could abstain does not survive the reference capture that Section~\ref{sec:fang_results} demonstrates. It is a trade, not a free choice, and we do not present our filter as having the property the earlier formulation claimed.
+The comparison is unflattering to all three filters that carry a fixed retention budget, ours included, and we present it that way. Multi-Krum excludes exactly $20$ of $50$ clients in every warm-up round; DnC excludes exactly $20$; and USTAD-FL excludes between $21.2$ and $22.2$ per round across the $72$ runs, with a median of $21.6$. Ours is therefore the \emph{worst} of the three on this measurement, not the best, and by a margin that no accuracy figure in Tables~\ref{tab:acc_mnist} or~\ref{tab:acc_fashion_mnist} registers. The mechanism is identical in all three cases even though the constant arrives by different routes---from an assumed $M$ for the two baselines, from a quantile for ours---and Section~\ref{sec:drop_floor} states why we accept it here: a shape-based rule that could abstain does not survive the reference capture that Section~\ref{sec:fang_results} demonstrates. It is a trade, not a free choice, and we do not present our filter as having the property the earlier formulation claimed.
 
 We record the earlier measurement because it is the sharper statement of the same defect and because it is what makes the trade concrete. Run on an \emph{attack-free} federation for a full $50$ rounds, an adaptive-quantile variant discarded a mean of $43.6\%$ of clients per round on MNIST and $44.1\%$ on Fashion-MNIST, every one of them honest, and the rate did not decay---over the final ten rounds it was $45.5\%$ and $44.9\%$. No choice of parameters could have given it a no-attack mode, because an unconditional drop rate is what a quantile criterion \emph{is}.
 
-\subsubsection{Detector Invocation Cost}
+\subsubsection{Detector Invocation Cost and the Choice of $q_s$}
 \label{sec:invocation_cost}
-Exhaustive scoring on this protocol is $N \times T = 50 \times 50 = 2{,}500$ client-rounds, and $q_s$ decides how many of them the temporal arm actually re-scores. We report the measured invocation count and detector time at the operating point against the $q_s = 0$ extreme: \pending.
 
-Two scoping statements are required. First, the saving is not monotone in $q_s$, and since no quantity reported here separates the settings on detection quality, a cheaper setting cannot be claimed equally good on this evidence. Second, and more importantly, the invocation count measures the cost of an arm whose \emph{benefit} these experiments do not establish: as Section~\ref{sec:experimental_setup} states, the statistical screen alone is already at ceiling on all four attacks, so what this sub-section quantifies is the price of retaining a component for threat models we have not yet built. We regard that as the honest framing and report the $w = 0$ configuration alongside so the price is legible.
+The temporal arm is the only expensive component of USTAD-FL, so how often it must run decides whether it is deployable. Table~\ref{tab:invocation_cost} reports the operating-point campaign that measures this: nine values of $q_s$ over both datasets and all four attacks, $72$ runs. Unlike the earlier formulation of this experiment, the campaign runs the method exactly as specified in Section~\ref{sec:method} and under the \emph{same} protocol as the matched comparison---$N=50$, $M=20$, $T=50$, five local epochs---so its cells are directly comparable with the accuracy tables and require no separate-campaign qualification.
+
+\noindent\textit{Cost falls monotonically; detection does not move.} Exhaustive scoring would invoke the ConvLSTM on $N \times T = 2{,}500$ client-rounds. The cold-start window and the re-scoring gate hold it to $1{,}979$ even at $q_s = 0.1$, already a $20.9\%$ reduction, and raising $q_s$ cuts steadily into the remainder: $1{,}300$ at $q_s = 0.5$ ($48.0\%$), $1{,}109$ at $q_s = 0.6$ ($55.6\%$), and $540$ at $q_s = 0.9$ ($78.4\%$), with detector wall-clock time falling from $977$\,ms to $271$\,ms. Over that entire range detection is unchanged: recall stays between $0.997$ and $1.000$ with no trend in $q_s$, the number of clients the filter excludes does not move at all, and final accuracy varies within a dataset--attack cell by less than the single-run noise floor.
+
+\begin{table}[!t]
+\centering
+\caption{Operating-point sweep over the scoring quantile $q_s$ ($N=50$, $T=50$, $2$ datasets $\times$ $4$ attacks $=8$ cells per row, $72$ runs). \textbf{Cut} is the reduction in ConvLSTM invocations against exhaustive scoring, $N \times T = 2500$ client-rounds. Recall is over the attacked rounds $t \ge 6$. Cost falls monotonically in $q_s$ while detection does not move; the operating point is therefore set from the threat model, at $q_s=1-\epsilon_{\max}$, not from these columns.}
+\label{tab:invocation_cost}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+ & \multicolumn{3}{c}{\textbf{Detector cost}} & \multicolumn{1}{c}{\textbf{Detection}} \\
+\cmidrule(lr){2-4} \cmidrule(l){5-5}
+$q_s$ & Fwd. & \textbf{Cut} & ms & Recall ($t\ge6$) \\
+\midrule
+0.1 & 1979 & 20.9\% & 977 & 1.000 \\
+0.2 & 1870 & 25.2\% & 895 & 1.000 \\
+0.3 & 1680 & 32.8\% & 811 & 0.999 \\
+0.4 & 1490 & 40.4\% & 699 & 1.000 \\
+0.5$^\star$ & 1300 & 48.0\% & 615 & 0.999 \\
+0.6 & 1109 & 55.6\% & 529 & 0.997 \\
+0.7 & 920 & 63.2\% & 445 & 1.000 \\
+0.8 & 730 & 70.8\% & 361 & 1.000 \\
+0.9 & 540 & 78.4\% & 271 & 1.000 \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize \raggedright $^\star$Selected operating point, $q_s=1-\epsilon_{\max}$ with $\epsilon_{\max}=0.5$ the largest adversarial fraction the threat model of Section~\ref{sec:threat} admits. It is derived, not tuned: neither accuracy nor recall discriminates among these settings---both sit inside single-run noise at every $q_s$---so selecting on either would select noise. What the quantile does determine is attacker coverage in the temporal arm, which is complete exactly while $q_s\le1-M/N$. Note this is a strictly conservative choice: the runs use $M/N=0.4$, which would license $q_s=0.6$ and a $55.6\%$ reduction, but reading the operating point off the realised adversarial fraction would encode the malicious-count prior this work avoids.\par}
+\end{table}
+
+\noindent\textit{The operating point is therefore derived, not measured.} This flatness is a problem for tuning, not a convenience: if no reported quantity discriminates among the settings, then selecting on any of them selects noise. We accordingly fix $q_s$ from the threat model rather than from the sweep. The trigger of Section~\ref{sec:temporal} re-scores a client when its smoothed score exceeds the $q_s$-quantile of the round's own score distribution, and the screen places malicious clients in the \emph{upper} tail of that distribution; a coordinated block of size $\epsilon = M/N$ therefore occupies the top $\epsilon$ of the ordering, and every one of its members is re-scored precisely while $q_s \le 1 - \epsilon$. Setting
+\begin{equation}
+q_s = 1 - \epsilon_{\max},
+\label{eq:qs_choice}
+\end{equation}
+with $\epsilon_{\max}$ the largest adversarial fraction the deployment must tolerate, therefore keeps the temporal arm's coverage of the adversary complete for every adversary in scope and requires no knowledge of the actual $M$. Section~\ref{sec:threat} admits any $M < N/2$, giving $\epsilon_{\max} = 0.5$ and hence $q_s = 0.5$: a $48.0\%$ reduction in invocations, at $1{,}300$ of $2{,}500$ client-rounds.
+
+We are explicit that this is the \emph{conservative} reading and that it costs something. The campaign runs at $\epsilon = 0.4$, where~\eqref{eq:qs_choice} would license $q_s = 0.6$ and a $55.6\%$ reduction instead. We decline those extra seven points because reading the operating point off the realised adversarial fraction would encode a malicious-count prior---the assumption this work is built to avoid---and because the guarantee in~\eqref{eq:qs_choice} is a threshold rather than a gradient: it holds exactly up to $1-\epsilon$ and offers nothing beyond it. A parameter whose failure mode is discontinuous should be set with margin.
+
+We note the scope of~\eqref{eq:qs_choice} rather than leaving it implicit. It concerns which clients the temporal arm \emph{refreshes}, not which the filter excludes: the exclusion decision is taken on the fused score by~\eqref{eq:dual_thresh}, and Table~\ref{tab:invocation_cost} shows recall unchanged across the whole sweep, including settings well above $1-\epsilon$. The margin~\eqref{eq:qs_choice} buys is therefore insurance for the threat models of Section~\ref{sec:security}---where the screen cannot be relied on to carry the attacker on its own---rather than something the present experiments reward.
+
+One scoping statement is required: each cell is a single run, so individual entries carry the usual caveat, and the argument rests on trends consistent across nine settings and eight configurations rather than on any one number.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -769,11 +852,9 @@ The design conclusion we draw is about exclusion rules rather than about anomaly
 
 One qualification bounds the numbers above, and we state it rather than leave it to be found. The campaigns reported here were run by an implementation that still carried the exploratory temporal arm described below. Since the statistical score alone separates attackers from honest clients by a positive margin in every configuration while the fused score that was actually thresholded does not, we expect a statistical-only re-run to improve on the residual honest-client exclusions we report; we have not performed one, and we claim only the separability, which is measured, and not the improvement it predicts.
 
-Two limitations bound these claims and we state them as the open problems they are. First, the exclusion rule. A quantile criterion discards a fixed fraction of participants unconditionally, and the shape-based alternative that removes this floor requires a separable score distribution---exactly what reference capture destroys. We adopt the quantile rule because it survives the regime this paper is about, and we report its unconditional exclusions in full rather than qualifying them away; a rule that is simultaneously capture-robust and free to abstain would supersede both, and we do not have one. Second, the temporal arm. On the four attacks evaluated here the statistical screen alone is already at ceiling, so the arm has no headroom to occupy and its contribution is not established by these experiments. We retain it because the fusion rule makes it structurally unable to harm detection, and because the threat models it is designed for---slow drift, intermittent participation, detector-aware evasion---are precisely those a per-round test cannot address; but demonstrating that benefit requires attacks we have not yet built, and we claim it as motivation rather than as a result.
+Two limitations bound these claims and we state them as the open problems they are. First, the exclusion rule. A quantile criterion discards a fixed fraction of participants unconditionally, and the shape-based alternative that removes this floor requires a separable score distribution---exactly what reference capture destroys. We adopt the quantile rule because it survives the regime this paper is about, and we report its unconditional exclusions in full rather than qualifying them away; a rule that is simultaneously capture-robust and free to abstain would supersede both, and we do not have one. Second, the temporal arm. On the four attacks evaluated here the statistical screen alone is already at ceiling, so the arm has no headroom to occupy and its contribution is not established by these experiments. A $72$-run sweep of the scoring quantile sharpens that negative finding rather than softening it. Invocations fall monotonically with the quantile, by up to $78.4\%$ against exhaustive scoring, while recall holds between $0.997$ and $1.000$ throughout---so nothing we measure can choose the setting, and recall in particular is insensitive to it because the statistical screen, not the temporal arm, is what excludes these attackers. We therefore derive the setting instead: since the trigger is score-ordered and a coordinated adversary occupies the upper tail of the score distribution, $q_s = 1-\epsilon_{\max}$ keeps that adversary within the arm's view for every fraction the threat model admits, at a $48.0\%$ invocation reduction. We retain the arm on two narrow grounds and claim no more: the boost fusion of~\eqref{eq:boost_fusion} makes it structurally unable to harm detection, and at roughly half its naive cost it is cheap enough to carry while the threat models that would justify it---slow drift, intermittent participation, detector-aware evasion, none of which a per-round test can address---are constructed. Demonstrating its benefit requires attacks we have not yet built.
 
 Several directions remain open for future work. First, the statistical-only re-run identified above would attribute the reported detection quality to the screen of Section~\ref{sec:method} without qualification. Second, USTAD-FL assumes throughout that malicious clients remain a minority ($M < N/2$), as required both by the coordinate-wise median reference and by the upper-half restriction of the gap search; defending against a malicious majority, and characterizing the detector under partial participation, in which the per-round malicious count becomes a random variable that can transiently exceed one half, are natural extensions. Finally, extending the screen to targeted backdoor attacks, whose per-round signature is far weaker than that of the untargeted attacks studied here, and evaluating it against an adversary tailored to its own five signals, are promising directions.
-
-
 
 
 %=============================================================================
@@ -844,12 +925,6 @@ H.~Xiao, K.~Rasul, and R.~Vollgraf, ``Fashion-MNIST: A novel image dataset for b
 \end{thebibliography}
 
 \end{document}
-
-
-
-
-
-
 
 
 
